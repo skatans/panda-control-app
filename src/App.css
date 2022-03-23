@@ -36,3 +36,25 @@
     transform: rotate(360deg);
   }
 }
+
+#info {
+  text-align: center;
+  margin: 2rem;
+}
+#round-button {
+  width: 100px;
+  height: 100px;
+  border: 5px solid rgba(0, 0, 0, 0.5);
+  border-radius: 100%;
+  background: #ccc;
+  margin: auto auto;
+}
+#round-button.disconnected {
+  background: #dd4433;
+}
+#round-button.connected {
+  background: #33aa44;
+}
+#status {
+  margin-top: 0.5rem;
+}

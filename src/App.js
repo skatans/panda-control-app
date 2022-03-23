@@ -1,62 +1,66 @@
-import logo from './logo.svg';
+import logo from './panda.png';
 import './App.css';
-import React from 'react';
+import Gamepad from 'react-gamepad'
+import {Component, React} from 'react'
 
-function getGamepadState() {
-
-  // Returns up to 4 gamepads.
-  const gamepads = navigator.getGamepads();
-
-  // We take the first one, for simplicity
-  const gamepad = gamepads[0];
-
-  // Escape if no gamepad was found
-  if (!gamepad) {
-      console.log('No gamepad found.');
-      return;
+class GameControl extends Component {
+  connectHandler(gamepadIndex) {
+    console.log(`Gamepad ${gamepadIndex} connected !`)
+    document.querySelector('#round-button').className = 'connected';
+    document.querySelector('#gamepad-info').textContent = 'Gamepad connected!';
   }
-
-  // Filter out only the buttons which are pressed
-  const pressedButtons = gamepad.buttons
-      .map((button, id) => ({id, button}))
-      .filter(isPressed);
-
-  // Print the pressed buttons
-  for (const button of pressedButtons) {
-    //console.log(gamepad);
-      console.log(button);
-      console.log(`Button ${button.id} was pressed.`)
+ 
+  disconnectHandler(gamepadIndex) {
+    console.log(`Gamepad ${gamepadIndex} disconnected !`)
+    document.querySelector('#gamepad-info').textContent = 'Gamepad disconnected :(';
   }
+ 
+  buttonChangeHandler(buttonName, down) {
+    console.log(buttonName, down)
+  }
+ 
+  axisChangeHandler(axisName, value, previousValue) {
+    console.log(axisName, value)
+    document.querySelector('#button-info').textContent = ('Latest input: ' + axisName + ' ' + value);
+  }
+ 
+  buttonDownHandler(buttonName) {
+    console.log(buttonName, 'down')
+  }
+ 
+  buttonUpHandler(buttonName) {
+    console.log(buttonName, 'up')
+    document.querySelector('#button-info').textContent = ('Latest input: ' + buttonName);
+  }
+ 
+  render() {
+    return (
+      <div>
+      <Gamepad
+        onConnect={this.connectHandler}
+        onDisconnect={this.disconnectHandler}
 
-}
+        onButtonChange={this.buttonChangeHandler}
+        onAxisChange={this.axisChangeHandler}
 
-function isPressed({button: {pressed}}) {
-  return !!pressed;
+        onButtonDown={this.buttonDownHandler}
+        onButtonUp={this.buttonUpHandler}
+      >
+        <p id="gamepad-info">Waiting for Gamepad.</p>
+        </Gamepad>
+      </div>
+    )
+  }
 }
 
 function App() {
-
-  const refreshRate = 100;
-  const output = document.getElementById('output');
-
-  setInterval(getGamepadState, refreshRate);
-
   return (
     <div className="App">
       <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and sdsd to reload. Add Petteri stuff and uujee
-        </p>
-        <p id="gamepad-info">Waiting for Gamepad.</p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
+      <p><img src={logo} className="App-logo" alt="logo" /></p>
+          <GameControl/>
+        <div id="round-button"></div>
+        <p id="button-info"></p>
       </header>
     </div>
   );
