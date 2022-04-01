@@ -44,6 +44,8 @@ class GameControl extends Component {
   disconnectHandler(gamepadIndex) {
     console.log(`Gamepad ${gamepadIndex} disconnected !`)
     document.querySelector('#gamepad-info').textContent = 'Gamepad disconnected :(';
+    // Send stop signal to server
+    
   }
  
   buttonChangeHandler(buttonName, down) {
@@ -54,15 +56,29 @@ class GameControl extends Component {
   }
  
   axisChangeHandler(axisName, value, previousValue) {
+    /*
+     * At the moment only the left stick has movement in both directions
+     * right stick up/down is not captured
+     */
+
+    // LeftStickX = left stick right/left
+    // LeftStickY = left stick up/down
+    // axisMoveZ = 
     console.log(axisName, value)
-    document.querySelector('#button-info').textContent = ('Latest input: ' + axisName + ' ' + value);
-    if (axisName == 'LeftStickY'){
+    document.querySelector('#button-info').textContent = ('Latest input: ' + axisName);
+    
+    if (axisName == 'LeftStickX'){
+      // Left/Right
       axisMoveY(value);
     }
-    //sendControlMessage(
-    //  "axisChange",
-    //  axisName,
-    //  value);
+    if (axisName == 'LeftStickY'){
+      // Front/Back
+      axisMoveX(value);
+    }
+    if (axisName == 'RightStickY'){
+      // Up/Down
+      axisMoveZ(value);
+    }
   }
  
   buttonDownHandler(buttonName) {
@@ -112,18 +128,21 @@ function operateGripper(operation){
 }
 
 function axisMoveX(value){
+  // Front/Back
   sendControlMessage(
     "axisChange",
     "X",
     value);
 }
 function axisMoveY(value){
+  // Left/Right
   sendControlMessage(
     "axisChange",
     "Y",
     value);
 }
 function axisMoveZ(value){
+  // Up/Down
   sendControlMessage(
     "axisChange",
     "Z",
