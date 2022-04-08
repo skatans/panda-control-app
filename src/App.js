@@ -8,14 +8,17 @@ import env from "react-dotenv";
 import { Container, Row, Col, Card, Button, ButtonGroup } from 'react-bootstrap';
 
 const client = new W3CWebSocket(env.PETTERI);
+var connected = false;
+var controller = null;
 
 client.onopen = () => {
-    console.log('WebSocket Client Connected');
-    document.querySelector('#server-info').textContent = env.PETTERI;
+  connected = true;
+  console.log('WebSocket Client Connected');
+  document.querySelector('#server-info').textContent = env.PETTERI;
 };
 
 client.onmessage = (message) => {
-    console.log(message);
+    //console.log(message);
     document.querySelector('#server-message').textContent = message.data;
 };
 
@@ -24,130 +27,257 @@ client.onerror = function() {
     document.querySelector('#server-info').textContent = 'Connection Error';
 };
 
-function sendControlMessage(type, identifier, value) {
-  console.log("Sending to server:", type, identifier, value);
-  document.querySelector('#client-message').textContent = "type: "+type+"\nid: "+identifier+"\nvalue: " + value;
-  client.send(JSON.stringify({
-    type: type,
-    id: identifier,
-    value: value
-  }));
+
+function sendJSON(gamepadStateObject) {
+    // 0 == LeftStickX (left/right)*/
+    // 1 == LeftStickY (up/down)
+    // 2 == L2
+    // 3 == RightStickX (up/down)
+    // 4 == RightStickY (up/down)
+    // 5 == R2
+    // 6 == dpadY
+    // 7 == dpadX
+  document.querySelector('#client-message').textContent = JSON.stringify(gamepadStateObject);
+  if(connected){
+    client.send(JSON.stringify(gamepadStateObject));
+  }
 }
 
-class GameControl extends Component {
-  connectHandler(gamepadIndex) {
-    console.log(`Gamepad ${gamepadIndex} connected !`)
-    document.querySelector('#round-button').className = 'connected';
-    document.querySelector('#gamepad-info').textContent = 'Gamepad connected!';
+/* --------------------------------
+      GAMECONTROLLER STUFF
+---------------------------------- */
+
+// unfinished class not in use (yet)
+/*
+class Controller {
+  constructor(controller) {
+    this.state = {
+      type: "",
+      //linearX: 0,
+      //linearY: 0,
+      //linearZ: 0,
+      //angularX: 0,
+      //angularY: 0,
+      //angularZ: 0,
+      gripper: 0
+    }
   }
- 
-  disconnectHandler(gamepadIndex) {
-    console.log(`Gamepad ${gamepadIndex} disconnected !`)
-    document.querySelector('#gamepad-info').textContent = 'Gamepad disconnected :(';
-    // Send stop signal to server
     
+  static axes = {
+    0: "linearX",
+    1: "linearY",
+    2: "linearZ-2",
+    3: "angularX",
+    4: "angularY",
+    5: "linearZ-5",
+    6: "linearX",
+    7: "linearX"
   }
- 
-  buttonChangeHandler(buttonName, down) {
-    sendControlMessage(
-      "buttonChange",
-      buttonName,
-      down ? 0 : 1);
-  }
- 
-  axisChangeHandler(axisName, value, previousValue) {
-    /*
-     * At the moment only the left stick has movement in both directions
-     * right stick up/down is not captured
-     */
-
-    // LeftStickX = left stick right/left
-    // LeftStickY = left stick up/down
-    // axisMoveZ = 
-    console.log(axisName, value)
-    document.querySelector('#button-info').textContent = ('Latest input: ' + axisName);
     
-    if (axisName == 'LeftStickX'){
-      // Left/Right
-      axisMoveY(value);
-    }
-    if (axisName == 'LeftStickY'){
-      // Front/Back
-      axisMoveX(value);
-    }
-    if (axisName == 'RightStickY'){
-      // Up/Down
-      axisMoveZ(value);
-    }
+  static controllerButtons = {
+    0: "buttonX",
+    1: "buttonO",
+    2: "buttonTR",
+    3: "buttonSQ",
+    4: "gripperOpen", //L1
+    5: "gripperClose", //R1
+    6: "L2",
+    7: "R2",
+    8: "home",
+    9: "start",
+    10: "power",
+    11: "LS",
+    12: "RS"
   }
- 
-  buttonDownHandler(buttonName) {
-    console.log(buttonName, 'down');
-  }
- 
-  buttonUpHandler(buttonName) {
-    console.log(buttonName, 'up')
-    document.querySelector('#button-info').textContent = ('Latest input: ' + buttonName);
-  }
- 
-  render() {
-    return (
-      <div>
-      <Gamepad
-        onConnect={this.connectHandler}
-        onDisconnect={this.disconnectHandler}
+  
+};
+*/
 
-        onButtonChange={this.buttonChangeHandler}
-        onAxisChange={this.axisChangeHandler}
+var gamepadState = {
+  type: "",
+  //linearX: 0,
+  //linearY: 0,
+  //linearZ: 0,
+  //angularX: 0,
+  //angularY: 0,
+  //angularZ: 0,
+  gripper: 0
+};
 
-        onButtonDown={this.buttonDownHandler}
-        onButtonUp={this.buttonUpHandler}
-      >
-        <p id="gamepad-info">Waiting for Gamepad.</p>
-        </Gamepad>
-      </div>
-    )
+const axes = {
+  0: "linearX",
+  1: "linearY",
+  2: "linearZ-2",
+  3: "angularX",
+  4: "angularY",
+  5: "linearZ-5",
+  6: "linearX",
+  7: "linearX"
+}
+
+const controllerButtons = {
+  0: "buttonX",
+  1: "buttonO",
+  2: "buttonTR",
+  3: "buttonSQ",
+  4: "gripperOpen", //L1
+  5: "gripperClose", //R1
+  6: "L2",
+  7: "R2",
+  8: "home",
+  9: "start",
+  10: "power",
+  11: "LS",
+  12: "RS"
+}
+
+
+function setControllerState(muutettava, arvo) {
+  gamepadState[muutettava] = arvo;
+  //console.log(gamepadState);
+  sendJSON(gamepadState);
+}
+
+
+var gamepadInfo = document.getElementById("gamepad-info");
+var start;
+
+
+window.addEventListener("gamepadconnected", function(e) {
+  var gp = navigator.getGamepads()[e.gamepad.index];
+
+  document.querySelector('#round-button').className = 'connected';
+  document.querySelector('#gamepad-status').textContent = 'Gamepad connected!';
+
+  //controller = new Controller();
+  controllerLoop();
+  
+  console.log("Gamepad connected at index %d: %s. %d buttons, %d axes.",
+    gp.index, gp.id,
+    gp.buttons.length, gp.axes.length);
+});
+
+
+window.addEventListener("gamepaddisconnected", function(e) {
+  gamepadInfo.innerHTML = "Waiting for gamepad.";
+  console.log(`Gamepad disconnected !`)
+  document.querySelector('#gamepad-status').textContent = 'Gamepad disconnected :(';
+  window.cancelRequestAnimationFrame(start);
+});
+
+
+var interval;
+
+if (!('ongamepadconnected' in window)) {
+  // No gamepad events available, poll instead.
+  interval = setInterval(pollGamepads, 500);
+}
+
+function pollGamepads() {
+  var gamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads : []);
+  for (var i = 0; i < gamepads.length; i++) {
+    var gp = gamepads[i];
+    if (gp) {
+      gamepadInfo.innerHTML = "Gamepad connected at index " + gp.index + ": " + gp.id +
+        ". It has " + gp.buttons.length + " buttons and " + gp.axes.length + " axes.";
+      clearInterval(interval);
+      controllerLoop();
+    }
   }
 }
+
+function buttonPressed(b) {
+  if (typeof(b) == "object") {
+    return b.pressed;
+  }
+  return b == 1.0;
+}
+
+
+/* --------------------------------
+      CONTROLLER LOOP
+---------------------------------- */
+
+var controllerLoopOn = false;
+// these have value fluctuation for some reason
+var linearZ2 = false;
+var linearZ5 = false;
+
+function controllerLoop() {
+  var gamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : []);
+  if (!gamepads) {
+    return;
+  }
+
+  var gp = gamepads[0];
+  
+  if (!controllerLoopOn){
+    console.log("Controller loop started!");
+    console.log(gp);
+    controllerLoopOn = true;
+  }
+
+  var i;
+
+  for (i = 0; i < gp.buttons.length; i++) {
+    var currentButton = gp.buttons[i]
+
+    if (buttonPressed(currentButton) && (i != 6 && i != 7)) {
+      console.log("pressed:", controllerButtons[i]);
+      setControllerState(controllerButtons[i], 1);
+    } else {
+      setControllerState(controllerButtons[i], 0)
+    }
+  }
+
+  for (i = 0; i < gp.axes.length; i++) {
+    var currentAxisValue = gp.axes[i];
+
+    // problems with 2 and 5 having different value stuff
+    // like first have default value of 0 then range from -1 to 1
+    if (i == 2) {
+      currentAxisValue = (currentAxisValue+1)/2;
+      if (currentAxisValue != 1 && !linearZ2){
+        currentAxisValue = 0;
+      } else {
+        linearZ2 = true;
+      }
+    } else if (i == 5) {
+      currentAxisValue = (currentAxisValue+1)/2;
+      if (currentAxisValue == 0.5 && !linearZ5){
+        currentAxisValue = 0;
+      } else {
+        linearZ5 = true;
+      }
+    }
+
+    // other axes are ok
+    if (currentAxisValue != 0){
+      console.log("axis", i, ":", axes[i], currentAxisValue)
+      setControllerState(axes[i], currentAxisValue);
+    } else {
+      setControllerState(axes[i], 0);
+    }
+  }
+
+  requestAnimationFrame(controllerLoop);
+}
+
 
 function operateGripper(operation){
-  // 1 = open gripper
-  // 0 = close gripper
+  // 0 = open gripper
+  // 1 = close gripper
   // for now
+  gamepadState.type = "gripper";
   if (operation){
-    console.log("open gripper");
+    gamepadState.gripper = 0;
   }
   else {
-    console.log("close gripper");
+    gamepadState.gripper = 1;
   }
-  sendControlMessage(
-    "action",
-    "gripper",
-    operation
-  );
+  sendJSON(gamepadState);
 }
 
-function axisMoveX(value){
-  // Front/Back
-  sendControlMessage(
-    "axisChange",
-    "X",
-    value);
-}
-function axisMoveY(value){
-  // Left/Right
-  sendControlMessage(
-    "axisChange",
-    "Y",
-    value);
-}
-function axisMoveZ(value){
-  // Up/Down
-  sendControlMessage(
-    "axisChange",
-    "Z",
-    value);
-}
 
 class ServerStatus extends Component {
   render() {
@@ -167,6 +297,10 @@ class ServerStatus extends Component {
   }
 }
 
+function manualInputHandler(button, value){
+  console.log("cool");
+}
+
 class ControlButtons extends Component {
     render() {
     return (
@@ -180,21 +314,21 @@ class ControlButtons extends Component {
           <Row>Arm movement</Row>    
           
           <ButtonGroup vertical className="me-2" aria-label="Z axis buttons">
-            <Button  variant="info" onClick={ () => axisMoveZ(-0.2) }>Up</Button>
-            <Button variant="secondary" onClick={ () => axisMoveZ(0) }>-</Button>
-            <Button variant="info" onClick={ () => axisMoveZ(0.2) }>Down</Button>
+            <Button  variant="info" onClick={ () => manualInputHandler("Z", -0.2) }>Up</Button>
+            <Button variant="secondary" onClick={ () => manualInputHandler("Z", 0)}>-</Button>
+            <Button variant="info" onClick={ () => manualInputHandler("Z", 0.2) }>Down</Button>
           </ButtonGroup>
 
           <ButtonGroup vertical className="me-2" aria-label="X axis buttons">
-            <Button  variant="info" onClick={ () => axisMoveX(0.2) }>Front</Button>
-            <Button variant="secondary" onClick={ () => axisMoveX(0) }>-</Button>
-            <Button variant="info" onClick={ () => axisMoveX(-0.2) }>Back</Button>
+            <Button  variant="info" onClick={ () => manualInputHandler("X", 0.2) }>Front</Button>
+            <Button variant="secondary" onClick={ () => manualInputHandler("X", 0) }>-</Button>
+            <Button variant="info" onClick={ () => manualInputHandler("X", -0.2)}>Back</Button>
           </ButtonGroup>
 
           <ButtonGroup className="me-2" aria-label="Y axis buttons">
-            <Button  variant="info" onClick={ () => axisMoveY(-0.2) }>Left</Button>
-            <Button variant="secondary" onClick={ () => axisMoveY(0) }>-</Button>
-            <Button variant="info" onClick={ () => axisMoveY(0.2) }>Right</Button>
+            <Button  variant="info" onClick={ () => manualInputHandler("Y", -0.2) }>Left</Button>
+            <Button variant="secondary" onClick={ () => manualInputHandler("Y", 0) }>-</Button>
+            <Button variant="info" onClick={ () => manualInputHandler("Y", 0.2) }>Right</Button>
           </ButtonGroup>
 
         </Col>
@@ -207,8 +341,8 @@ class ControllerStatus extends Component {
   render() {
     return (
     <div className="App-header">
-        <ControlButtons/>
-        <GameControl/>
+       <ControlButtons/>
+      <p id="gamepad-status">Waiting for Gamepad.</p>
       <div id="round-button"></div>
       <p id="button-info"></p>
     </div>
