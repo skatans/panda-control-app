@@ -10,6 +10,12 @@ import { Container, Row, Col, Card, Button, ButtonGroup } from 'react-bootstrap'
 const client = new W3CWebSocket(env.PETTERI);
 var connected = false;
 var controller = null;
+const debug = {
+  incomingMessages: true,
+  outgoingMessages: true,
+  controllerLoop: true,
+  controllerInput: true
+};
 
 client.onopen = () => {
   connected = true;
@@ -18,7 +24,7 @@ client.onopen = () => {
 };
 
 client.onmessage = (message) => {
-    //console.log(message);
+    if (debug.incomingMessages) {console.log(message);}
     document.querySelector('#server-message').textContent = message.data;
 };
 
@@ -93,24 +99,29 @@ class Controller {
 };
 */
 
-var gamepadState = {
+var defaultGamepadState = {
   type: "",
-  //linearX: 0,
-  //linearY: 0,
-  //linearZ: 0,
-  //angularX: 0,
-  //angularY: 0,
-  //angularZ: 0,
-  gripper: 0
+  linearX: 0,
+  linearY: 0,
+  linearZ: 0,
+  angularX: 0,
+  angularY: 0,
+  angularZ: 0,
+  buttonX: 0,
+  buttonO: 0,
+  buttonTR: 0,
+  buttonSQ: 0,
+  gripperOpen: 0,
+  gripperClose: 0
 };
 
 const axes = {
   0: "linearX",
   1: "linearY",
-  2: "linearZ-2",
+  2: "linearZ", // linearZ-2
   3: "angularX",
   4: "angularY",
-  5: "linearZ-5",
+  5: "linearZ", // linearZ-5
   6: "linearX",
   7: "linearX"
 }
@@ -131,17 +142,13 @@ const controllerButtons = {
   12: "RS"
 }
 
-
-function setControllerState(muutettava, arvo) {
-  gamepadState[muutettava] = arvo;
-  //console.log(gamepadState);
+function sendControllerState(gamepadState) {
+  if (debug.outgoingMessages) {console.log("sent gamepad state:", gamepadState);}
   sendJSON(gamepadState);
 }
 
-
 var gamepadInfo = document.getElementById("gamepad-info");
 var start;
-
 
 window.addEventListener("gamepadconnected", function(e) {
   var gp = navigator.getGamepads()[e.gamepad.index];
@@ -150,13 +157,13 @@ window.addEventListener("gamepadconnected", function(e) {
   document.querySelector('#gamepad-status').textContent = 'Gamepad connected!';
 
   //controller = new Controller();
-  controllerLoop();
+  // Interval to poll and send controller input
+  interval = setInterval(controllerLoop, 60);
   
   console.log("Gamepad connected at index %d: %s. %d buttons, %d axes.",
     gp.index, gp.id,
     gp.buttons.length, gp.axes.length);
 });
-
 
 window.addEventListener("gamepaddisconnected", function(e) {
   gamepadInfo.innerHTML = "Waiting for gamepad.";
@@ -164,7 +171,6 @@ window.addEventListener("gamepaddisconnected", function(e) {
   document.querySelector('#gamepad-status').textContent = 'Gamepad disconnected :(';
   window.cancelRequestAnimationFrame(start);
 });
-
 
 var interval;
 
@@ -181,7 +187,6 @@ function pollGamepads() {
       gamepadInfo.innerHTML = "Gamepad connected at index " + gp.index + ": " + gp.id +
         ". It has " + gp.buttons.length + " buttons and " + gp.axes.length + " axes.";
       clearInterval(interval);
-      controllerLoop();
     }
   }
 }
@@ -210,29 +215,37 @@ function controllerLoop() {
   }
 
   var gp = gamepads[0];
+  var gpState = defaultGamepadState;
+  gpState.type = "controller";
   
-  if (!controllerLoopOn){
-    console.log("Controller loop started!");
-    console.log(gp);
+  if (debug.controllerLoop) {
+    if (!controllerLoopOn){
+      console.log("Controller loop started!");
+      console.log(gp);
+    }
     controllerLoopOn = true;
+    console.log("Controller loop looping!");
   }
 
+  // for iterating throgh the buttons and axes
   var i;
 
+  // Check buttons
   for (i = 0; i < gp.buttons.length; i++) {
     var currentButton = gp.buttons[i]
-
+    gpState[controllerButtons[i]] = 0;
+    // LS and RS are also axes, and exluded here from buttons
     if (buttonPressed(currentButton) && (i != 6 && i != 7)) {
-      console.log("pressed:", controllerButtons[i]);
-      setControllerState(controllerButtons[i], 1);
-    } else {
-      setControllerState(controllerButtons[i], 0)
+      if (debug.controllerInput) {console.log("pressed:", controllerButtons[i]);}
+      gpState[controllerButtons[i]] = 1;
     }
   }
 
+  // Check axes
   for (i = 0; i < gp.axes.length; i++) {
     var currentAxisValue = gp.axes[i];
-
+    
+    
     // problems with 2 and 5 having different value stuff
     // like first have default value of 0 then range from -1 to 1
     if (i == 2) {
@@ -250,32 +263,31 @@ function controllerLoop() {
         linearZ5 = true;
       }
     }
-
-    // other axes are ok
+    
+    gpState[axes[i]] = currentAxisValue;
     if (currentAxisValue != 0){
       console.log("axis", i, ":", axes[i], currentAxisValue)
-      setControllerState(axes[i], currentAxisValue);
-    } else {
-      setControllerState(axes[i], 0);
     }
   }
 
-  requestAnimationFrame(controllerLoop);
+  // send button and axis results
+  sendControllerState(gpState);
 }
 
 
 function operateGripper(operation){
+  var command = {}
   // 0 = open gripper
   // 1 = close gripper
   // for now
-  gamepadState.type = "gripper";
+  command.type = "gripper";
   if (operation){
-    gamepadState.gripper = 0;
+    command.gripper = 0;
   }
   else {
-    gamepadState.gripper = 1;
+    command.gripper = 1;
   }
-  sendJSON(gamepadState);
+  sendJSON(command);
 }
 
 
@@ -299,6 +311,10 @@ class ServerStatus extends Component {
 
 function manualInputHandler(button, value){
   console.log("cool");
+  var command = {}
+  command.type = "browser";
+  command[button] = value;
+  sendJSON(command);
 }
 
 class ControlButtons extends Component {
