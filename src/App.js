@@ -1,19 +1,20 @@
 import logo from './panda.png';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import Gamepad from 'react-gamepad'
 import {Component, React} from 'react'
 import { w3cwebsocket as W3CWebSocket } from "websocket";
 import env from "react-dotenv";
+import { Joystick, IJoystickUpdateEvent } from 'react-joystick-component';
 import { Container, Row, Col, Card, Button, ButtonGroup } from 'react-bootstrap';
 
 const client = new W3CWebSocket(env.PETTERI);
 var connected = false;
-var controller = null;
+var controllerType;
+
 const debug = {
-  incomingMessages: true,
+  incomingMessages: false,
   outgoingMessages: true,
-  controllerLoop: true,
+  controllerLoop: false,
   controllerInput: true
 };
 
@@ -34,7 +35,8 @@ client.onerror = function() {
 };
 
 
-function sendJSON(gamepadStateObject) {
+function sendJSON(controlObject) {
+  if (debug.outgoingMessages) {console.log("sent gamepad object:", controlObject);}
     // 0 == LeftStickX (left/right)*/
     // 1 == LeftStickY (up/down)
     // 2 == L2
@@ -43,9 +45,9 @@ function sendJSON(gamepadStateObject) {
     // 5 == R2
     // 6 == dpadY
     // 7 == dpadX
-  document.querySelector('#client-message').textContent = JSON.stringify(gamepadStateObject);
+  document.querySelector('#client-message').textContent = JSON.stringify(controlObject);
   if(connected){
-    client.send(JSON.stringify(gamepadStateObject));
+    client.send(JSON.stringify(controlObject));
   }
 }
 
@@ -106,14 +108,15 @@ var defaultGamepadState = {
   linearZ: 0,
   angularX: 0,
   angularY: 0,
-  angularZ: 0,
-  buttonX: 0,
-  buttonO: 0,
-  buttonTR: 0,
-  buttonSQ: 0,
-  gripperOpen: 0,
-  gripperClose: 0
+  angularZ: 0//,
+  //buttonX: 0,
+  //buttonO: 0,
+  //buttonTR: 0,
+  //buttonSQ: 0,
+  //gripperOpen: 0,
+  //gripperClose: 0
 };
+
 
 const axes = {
   0: "linearX",
@@ -123,7 +126,7 @@ const axes = {
   4: "angularY",
   5: "linearZ", // linearZ-5
   6: "linearX",
-  7: "linearX"
+  7: "angularZ"
 }
 
 const controllerButtons = {
@@ -142,11 +145,6 @@ const controllerButtons = {
   12: "RS"
 }
 
-function sendControllerState(gamepadState) {
-  if (debug.outgoingMessages) {console.log("sent gamepad state:", gamepadState);}
-  sendJSON(gamepadState);
-}
-
 var gamepadInfo = document.getElementById("gamepad-info");
 var start;
 
@@ -154,9 +152,9 @@ window.addEventListener("gamepadconnected", function(e) {
   var gp = navigator.getGamepads()[e.gamepad.index];
 
   document.querySelector('#round-button').className = 'connected';
-  document.querySelector('#gamepad-status').textContent = 'Gamepad connected!';
+  document.querySelector('#gamepad-status').textContent = 'Gamepad: '+ gp.id;
 
-  //controller = new Controller();
+  controllerType = gp.id;
   // Interval to poll and send controller input
   interval = setInterval(controllerLoop, 60);
   
@@ -204,6 +202,7 @@ function buttonPressed(b) {
 ---------------------------------- */
 
 var controllerLoopOn = false;
+var gripperButtonPressed = false;
 // these have value fluctuation for some reason
 var linearZ2 = false;
 var linearZ5 = false;
@@ -227,25 +226,54 @@ function controllerLoop() {
     console.log("Controller loop looping!");
   }
 
+  
+  // check gripper buttons
+  if(buttonPressed(gp.buttons[0]) || buttonPressed(gp.buttons[1])){
+    if (!gripperButtonPressed) {
+      gripperButtonPressed = true;
+      console.log("uus painallus");
+      operateGripper(buttonPressed(gp.buttons[1]));
+    }
+  } else {
+    gripperButtonPressed = false;
+  }
+  
+  // L2 and R2
+  if(buttonPressed(gp.buttons[4]) || buttonPressed(gp.buttons[5])){
+    sendJSON({
+      type: "joint",
+      "joint0": (
+        (buttonPressed(gp.buttons[4]) ? 0.5 : -0.5)
+        )
+      })
+    }
+    
+    
   // for iterating throgh the buttons and axes
   var i;
 
   // Check buttons
   for (i = 0; i < gp.buttons.length; i++) {
-    var currentButton = gp.buttons[i]
-    gpState[controllerButtons[i]] = 0;
-    // LS and RS are also axes, and exluded here from buttons
-    if (buttonPressed(currentButton) && (i != 6 && i != 7)) {
+    //gpState[controllerButtons[i]] = 0;
+    if (buttonPressed(gp.buttons[i]) && (i > 1)) {
+      console.log(i, gp.buttons[i]);
+    }
+    // L2 and R2 (6 & 7) are also axes, and exluded here from buttons
+    // exclude also gripper operation buttons 0 and 1
+    if ((i < 6 || i > 7) && buttonPressed(gp.buttons[i])) {
       if (debug.controllerInput) {console.log("pressed:", controllerButtons[i]);}
-      gpState[controllerButtons[i]] = 1;
+
+      console.log(buttonPressed(gp.buttons[i]));
+      //gpState[controllerButtons[i]] = 1;
+      //sendJSON(gpState);
     }
   }
 
+  var currentAxisValue;
   // Check axes
   for (i = 0; i < gp.axes.length; i++) {
-    var currentAxisValue = gp.axes[i];
-    
-    
+    // get the value 
+    currentAxisValue = gp.axes[i];
     // problems with 2 and 5 having different value stuff
     // like first have default value of 0 then range from -1 to 1
     if (i == 2) {
@@ -262,16 +290,19 @@ function controllerLoop() {
       } else {
         linearZ5 = true;
       }
+      currentAxisValue = currentAxisValue *-1;
     }
     
+    currentAxisValue = currentAxisValue.toFixed(1);
     gpState[axes[i]] = currentAxisValue;
     if (currentAxisValue != 0){
-      console.log("axis", i, ":", axes[i], currentAxisValue)
+      if (debug.controllerInput){
+        console.log("axis", i, ":", axes[i], currentAxisValue);
+      }
+      sendJSON(gpState);
     }
   }
-
-  // send button and axis results
-  sendControllerState(gpState);
+  
 }
 
 
@@ -296,14 +327,14 @@ class ServerStatus extends Component {
     return (
       <Card style={{ width: '20rem' }} className="align-self-center">
       <Card.Header>Server status</Card.Header>
-        <Card.Body>
-          <Card.Title>Connection</Card.Title>
-          <Card.Text id="server-info">Not connected</Card.Text>
-          <Card.Title>Sent message</Card.Title>
-          <Card.Text id="client-message">No messages sent.</Card.Text>
-          <Card.Title>Messages from server</Card.Title>
-          <Card.Text id="server-message">No messages from server</Card.Text>
-        </Card.Body>
+      <Card.Body>
+        <Card.Title>Connection</Card.Title>
+        <Card.Text id="server-info">Not connected</Card.Text>
+        <Card.Title>Last sent message</Card.Title>
+        <Card.Text id="client-message">No messages sent.</Card.Text>
+        <Card.Title>Messages from server</Card.Title>
+        <Card.Text id="server-message">No messages from server</Card.Text>
+      </Card.Body>
       </Card>
     )
   }
@@ -317,18 +348,31 @@ function manualInputHandler(button, value){
   sendJSON(command);
 }
 
-class ControlButtons extends Component {
-    render() {
+function onStop(){
+  console.log("stop");
+}
+
+const onMove = (stick:IJoystickUpdateEvent) => {
+  console.log("x", (stick.x/50).toFixed(1), "y", (stick.y/50).toFixed(1));
+}
+
+class ControllerStatus extends Component {
+  render() {
     return (
-      <Container id="gripperButtons">
-        <Col>
-          <Row>Gripper control</Row>    
+      <Card style={{ width: '20rem' }} className="align-self-center">
+      <Card.Header>Arm control</Card.Header>
+        <Card.Body>
           <ButtonGroup className="me-2" aria-label="Gripper buttons">
             <Button variant="primary" onClick={ () => operateGripper(1) }>Open gripper</Button>
             <Button variant="primary" onClick={ () => operateGripper(0) }>Close gripper</Button>
           </ButtonGroup> 
-          <Row>Arm movement</Row>    
-          
+        </Card.Body>
+
+        <Card.Body>
+          <Joystick size={100} sticky={false} throttle={100} move={onMove} stop={onStop}></Joystick>
+        </Card.Body>
+
+        <Card.Body>
           <ButtonGroup vertical className="me-2" aria-label="Z axis buttons">
             <Button  variant="info" onClick={ () => manualInputHandler("Z", -0.2) }>Up</Button>
             <Button variant="secondary" onClick={ () => manualInputHandler("Z", 0)}>-</Button>
@@ -340,31 +384,25 @@ class ControlButtons extends Component {
             <Button variant="secondary" onClick={ () => manualInputHandler("X", 0) }>-</Button>
             <Button variant="info" onClick={ () => manualInputHandler("X", -0.2)}>Back</Button>
           </ButtonGroup>
+          </Card.Body>
 
+        <Card.Body>
           <ButtonGroup className="me-2" aria-label="Y axis buttons">
             <Button  variant="info" onClick={ () => manualInputHandler("Y", -0.2) }>Left</Button>
             <Button variant="secondary" onClick={ () => manualInputHandler("Y", 0) }>-</Button>
             <Button variant="info" onClick={ () => manualInputHandler("Y", 0.2) }>Right</Button>
           </ButtonGroup>
 
-        </Col>
-      </Container>
+        <Card.Text id="gamepad-status">Waiting for Gamepad.</Card.Text>
+        <div id="round-button"></div>
+        <p id="button-info"></p>
+     
+      </Card.Body>
+      </Card>
     )
   }
 }
 
-class ControllerStatus extends Component {
-  render() {
-    return (
-    <div className="App-header">
-       <ControlButtons/>
-      <p id="gamepad-status">Waiting for Gamepad.</p>
-      <div id="round-button"></div>
-      <p id="button-info"></p>
-    </div>
-    )
-  }
-}
 
 function App() {
   return (
