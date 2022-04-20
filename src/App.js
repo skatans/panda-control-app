@@ -302,6 +302,7 @@ class ServerStatus extends Component {
     return (
       <Card style={{ width: '20rem' }} className="align-self-center">
       <Card.Header>Server status</Card.Header>
+      
       <Card.Body>
         <Card.Title>Connection</Card.Title>
         <Card.Text id="server-info">Not connected</Card.Text>
@@ -323,7 +324,7 @@ class ServerStatus extends Component {
 
 
 var defaultBrowserControlState = {
-  type: "browser",
+  type: "controller",
   linearX: 0,
   linearY: 0,
   linearZ: 0,
@@ -399,39 +400,36 @@ class ControllerStatus extends Component {
     return (
       <Card style={{ width: '20rem' }} className="align-self-center">
       <Card.Header>Arm control</Card.Header>
-        <Card.Body className='d-flex justify-content-around'>
+        <Card.Body className='d-flex justify-content-around flex-column'>
+
+          <Card.Subtitle className="mb-2 text-muted">Gripper actions</Card.Subtitle>
+          
           <ButtonGroup className="me-2" aria-label="Gripper buttons">
             <Button variant="primary" onClick={ () => operateGripper(1) }>Open gripper</Button>
             <Button variant="primary" onClick={ () => operateGripper(0) }>Close gripper</Button>
           </ButtonGroup> 
+          <ButtonGroup className="me-2" aria-label="Y axis buttons">
+            <Button  variant="outline-primary" onClick={ () => manualInputHandler("joint7", 1) }>Rotate left</Button>
+            <Button variant="outline-primary" onClick={ () => manualInputHandler("joint7", -1) }>Rotate right</Button>
+          </ButtonGroup>
         </Card.Body>
 
+        <Card.Subtitle className="mb-2 text-muted">Linear XY -- Linear Z -- Angular XY</Card.Subtitle>
+
         <Card.Body className='d-flex justify-content-around'>
+
           <Joystick move={(update) => signalConverter.onMove(update, ["linearX", "linearY"])} start={(update) => signalConverter.onMove(update, ["linearX", "linearY"])} stop={(update) => signalConverter.onStop(update)}></Joystick>
+          <Joystick move={(update) => signalConverter.onMove(update, ["linearZ", "angularX"])} start={(update) => signalConverter.onMove(update, ["angularY", "angularX"])} stop={(update) => signalConverter.onStop(update)}></Joystick>
           <Joystick move={(update) => signalConverter.onMove(update, ["angularY", "angularX"])} start={(update) => signalConverter.onMove(update, ["angularY", "angularX"])} stop={(update) => signalConverter.onStop(update)}></Joystick>
         </Card.Body>
 
-        <Card.Body>
-          <ButtonGroup vertical className="me-2" aria-label="Z axis buttons">
-            <Button  variant="info" onClick={ () => manualInputHandler("Z", -0.2) }>Up</Button>
-            <Button variant="secondary" onClick={ () => manualInputHandler("Z", 0)}>-</Button>
-            <Button variant="info" onClick={ () => manualInputHandler("Z", 0.2) }>Down</Button>
-          </ButtonGroup>
-
-          <ButtonGroup vertical className="me-2" aria-label="X axis buttons">
-            <Button  variant="info" onClick={ () => manualInputHandler("X", 0.2) }>Front</Button>
-            <Button variant="secondary" onClick={ () => manualInputHandler("X", 0) }>-</Button>
-            <Button variant="info" onClick={ () => manualInputHandler("X", -0.2)}>Back</Button>
-          </ButtonGroup>
-          </Card.Body>
-
-        <Card.Body>
+        <Card.Body className='d-flex justify-content-around'>
           <ButtonGroup className="me-2" aria-label="Y axis buttons">
-            <Button  variant="info" onClick={ () => manualInputHandler("Y", -0.2) }>Left</Button>
-            <Button variant="secondary" onClick={ () => manualInputHandler("Y", 0) }>-</Button>
-            <Button variant="info" onClick={ () => manualInputHandler("Y", 0.2) }>Right</Button>
+            <Button  variant="primary" onClick={ () => manualInputHandler("joint0", 1) }>Rotate base left</Button>
+            <Button variant="primary" onClick={ () => manualInputHandler("joint0", -1) }>Rotate base right</Button>
           </ButtonGroup>
-
+        </Card.Body>
+      <Card.Body>
         <Card.Text id="gamepad-status">Waiting for Gamepad.</Card.Text>
         <div id="round-button"></div>
         <p id="button-info"></p>
