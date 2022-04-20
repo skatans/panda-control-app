@@ -340,10 +340,10 @@ var defaultBrowserControlState = {
 };
 
 
-function manualInputHandler(button, value){
+function manualInputHandler(type, button, value){
   console.log("cool");
   var command = {}
-  command.type = "browser";
+  command.type = type;
   command[button] = value;
   sendJSON(command);
 }
@@ -383,7 +383,8 @@ class SignalConverter {
           console.log(defaultBrowserControlState)
           console.log(this.joystickState);
           console.log("x", (this.joystickState.x/50).toFixed(1), "y", (this.joystickState.y/50).toFixed(1));
-          browserControlState[this.joystickState.axes[0]] = parseInt(this.joystickState.y/5)/10;
+          browserControlState[this.joystickState.axes[0]] = 
+            (this.joystickState.axes[0] == "linearZ") ? (parseInt(this.joystickState.y/5)/10 * -1) : parseInt(this.joystickState.y/5)/10;
           browserControlState[this.joystickState.axes[1]] = parseInt(this.joystickState.x/5)/10;
           sendJSON(browserControlState);
         }
@@ -409,24 +410,24 @@ class ControllerStatus extends Component {
             <Button variant="primary" onClick={ () => operateGripper(0) }>Close gripper</Button>
           </ButtonGroup> 
           <ButtonGroup className="me-2" aria-label="Y axis buttons">
-            <Button  variant="outline-primary" onClick={ () => manualInputHandler("joint7", 1) }>Rotate left</Button>
-            <Button variant="outline-primary" onClick={ () => manualInputHandler("joint7", -1) }>Rotate right</Button>
+            <Button  variant="outline-primary" onClick={ () => manualInputHandler("joint", "joint7", 1) }>Rotate left</Button>
+            <Button variant="outline-primary" onClick={ () => manualInputHandler("joint", "joint7", -1) }>Rotate right</Button>
           </ButtonGroup>
         </Card.Body>
 
-        <Card.Subtitle className="mb-2 text-muted">Linear XY -- Linear Z -- Angular XY</Card.Subtitle>
+        <Card.Subtitle className="mb-2 text-muted">Linear XY -- Linear ZY -- Angular XY</Card.Subtitle>
 
         <Card.Body className='d-flex justify-content-around'>
 
           <Joystick move={(update) => signalConverter.onMove(update, ["linearX", "linearY"])} start={(update) => signalConverter.onMove(update, ["linearX", "linearY"])} stop={(update) => signalConverter.onStop(update)}></Joystick>
-          <Joystick move={(update) => signalConverter.onMove(update, ["linearZ", "angularX"])} start={(update) => signalConverter.onMove(update, ["angularY", "angularX"])} stop={(update) => signalConverter.onStop(update)}></Joystick>
+          <Joystick baseColor={"#226699"} stickColor={"#8899DD"} move={(update) => signalConverter.onMove(update, ["linearZ", "angularX"])} start={(update) => signalConverter.onMove(update, ["angularY", "angularX"])} stop={(update) => signalConverter.onStop(update)}></Joystick>
           <Joystick move={(update) => signalConverter.onMove(update, ["angularY", "angularX"])} start={(update) => signalConverter.onMove(update, ["angularY", "angularX"])} stop={(update) => signalConverter.onStop(update)}></Joystick>
         </Card.Body>
 
         <Card.Body className='d-flex justify-content-around'>
           <ButtonGroup className="me-2" aria-label="Y axis buttons">
-            <Button  variant="primary" onClick={ () => manualInputHandler("joint0", 1) }>Rotate base left</Button>
-            <Button variant="primary" onClick={ () => manualInputHandler("joint0", -1) }>Rotate base right</Button>
+            <Button  variant="primary" onClick={ () => manualInputHandler("joint", "joint0", 1) }>Rotate base left</Button>
+            <Button variant="primary" onClick={ () => manualInputHandler("joint", "joint0", -1) }>Rotate base right</Button>
           </ButtonGroup>
         </Card.Body>
       <Card.Body>
