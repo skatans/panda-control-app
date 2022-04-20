@@ -55,52 +55,6 @@ function sendJSON(controlObject) {
       GAMECONTROLLER STUFF
 ---------------------------------- */
 
-// unfinished class not in use (yet)
-/*
-class Controller {
-  constructor(controller) {
-    this.state = {
-      type: "",
-      //linearX: 0,
-      //linearY: 0,
-      //linearZ: 0,
-      //angularX: 0,
-      //angularY: 0,
-      //angularZ: 0,
-      gripper: 0
-    }
-  }
-    
-  static axes = {
-    0: "linearX",
-    1: "linearY",
-    2: "linearZ-2",
-    3: "angularX",
-    4: "angularY",
-    5: "linearZ-5",
-    6: "linearX",
-    7: "linearX"
-  }
-    
-  static controllerButtons = {
-    0: "buttonX",
-    1: "buttonO",
-    2: "buttonTR",
-    3: "buttonSQ",
-    4: "gripperOpen", //L1
-    5: "gripperClose", //R1
-    6: "L2",
-    7: "R2",
-    8: "home",
-    9: "start",
-    10: "power",
-    11: "LS",
-    12: "RS"
-  }
-  
-};
-*/
-
 var defaultGamepadState = {
   type: "controller",
   linearX: 0,
@@ -116,7 +70,6 @@ var defaultGamepadState = {
   //gripperOpen: 0,
   //gripperClose: 0
 };
-
 
 const axes = {
   0: "linearY",
@@ -196,14 +149,15 @@ function buttonPressed(b) {
   return b == 1.0;
 }
 
-
 /* --------------------------------
       CONTROLLER LOOP
 ---------------------------------- */
 
 var controllerLoopOn = false;
 var gripperButtonPressed = false;
+var baseJointButtonPressed = false;
 var zeroMessageSent = false;
+
 // these have value fluctuation for some reason
 var linearZ2 = false;
 var linearZ5 = false;
@@ -215,7 +169,7 @@ function controllerLoop() {
   }
 
   var gp = gamepads[0];
-  var gpState = defaultGamepadState;
+  let gpState = Object.assign({}, defaultGamepadState);
   gpState.type = "controller";
   
   if (debug.controllerLoop) {
@@ -239,23 +193,28 @@ function controllerLoop() {
     gripperButtonPressed = false;
   }
   
-  // L2 and R2
+  // L2 and R2, turning the base joint
   if(buttonPressed(gp.buttons[4]) || buttonPressed(gp.buttons[5])){
+    baseJointButtonPressed = true;
     sendJSON({
       type: "joint",
       "joint0": (
-        (buttonPressed(gp.buttons[4]) ? 0.5 : -0.5)
+        (buttonPressed(gp.buttons[4]) ? 1 : -1)
         )
-      })
-    }
-    
-    
+    })
+  } else if (baseJointButtonPressed){
+    sendJSON({
+      type: "joint",
+      "joint0": 0
+    })
+    baseJointButtonPressed = false;
+  }
+     
   // for iterating throgh the buttons and axes
   var i;
 
-  // Check buttons
+  // Check other buttons (these are not in use atm)
   for (i = 0; i < gp.buttons.length; i++) {
-    //gpState[controllerButtons[i]] = 0;
     if (buttonPressed(gp.buttons[i]) && (i > 1)) {
       console.log(i, gp.buttons[i]);
     }
@@ -263,7 +222,6 @@ function controllerLoop() {
     // exclude also gripper operation buttons 0 and 1
     if ((i < 6 || i > 7) && buttonPressed(gp.buttons[i])) {
       if (debug.controllerInput) {console.log("pressed:", controllerButtons[i]);}
-
       console.log(buttonPressed(gp.buttons[i]));
       //gpState[controllerButtons[i]] = 1;
       //sendJSON(gpState);
@@ -276,6 +234,12 @@ function controllerLoop() {
   for (i = 0; i < gp.axes.length; i++) {
     // get the value 
     currentAxisValue = gp.axes[i];
+
+    // linearX needs to be inverted
+    if (i == 1) {
+      currentAxisValue = currentAxisValue * -1;
+    }
+
     // problems with 2 and 5 having different value stuff
     // like first have default value of 0 then range from -1 to 1
     if (i == 2) {
@@ -351,6 +315,30 @@ class ServerStatus extends Component {
   }
 }
 
+
+
+/* --------------------------------
+      BROWSER CONTROLS
+---------------------------------- */
+
+
+var defaultBrowserControlState = {
+  type: "browser",
+  linearX: 0,
+  linearY: 0,
+  linearZ: 0,
+  angularX: 0,
+  angularY: 0,
+  angularZ: 0//,
+  //buttonX: 0,
+  //buttonO: 0,
+  //buttonTR: 0,
+  //buttonSQ: 0,
+  //gripperOpen: 0,
+  //gripperClose: 0
+};
+
+
 function manualInputHandler(button, value){
   console.log("cool");
   var command = {}
@@ -360,6 +348,7 @@ function manualInputHandler(button, value){
 }
 
 function onStop(){
+  sendJSON(defaultBrowserControlState);
   console.log("stop");
 }
 
@@ -369,30 +358,39 @@ const onMove = (stick:IJoystickUpdateEvent) => {
 
 class SignalConverter {
   signalRate = 100; 
-  joystickState = null; 
+  joystickState = null;
   constructor(rate){
       if(rate){
           this.signalRate = rate;
       }
   }
   //provided to `move` and `start` callback
-  onMove(joystickUpdate){
-      this.joystickState = joystickUpdate
+  onMove(joystickUpdate, axes){
+      this.joystickState = joystickUpdate;
+      this.joystickState.axes = axes;
   }
   //provided to `stop` callback
   onStop(){
-      this.joystickState = null; 
+      this.joystickState = null;
+      sendJSON(defaultBrowserControlState);
   }
 
-  streamUpdates(callback){
+  streamUpdates(){
       setInterval(()=> {
-          callback(this.joystickState)
+        if (this.joystickState != null){
+          let browserControlState = Object.assign({}, defaultBrowserControlState);
+          console.log(defaultBrowserControlState)
+          console.log(this.joystickState);
+          console.log("x", (this.joystickState.x/50).toFixed(1), "y", (this.joystickState.y/50).toFixed(1));
+          browserControlState[this.joystickState.axes[0]] = parseInt(this.joystickState.y/5)/10;
+          browserControlState[this.joystickState.axes[1]] = parseInt(this.joystickState.x/5)/10;
+          sendJSON(browserControlState);
+        }
       }, this.signalRate)
-      console.log("sdffds");
   }
 }
 
-const signalConverter = new SignalConverter(100);
+const signalConverter = new SignalConverter(60);
 signalConverter.streamUpdates((state) => {/*Logs every 100ms*/})
 //React
 
@@ -401,16 +399,16 @@ class ControllerStatus extends Component {
     return (
       <Card style={{ width: '20rem' }} className="align-self-center">
       <Card.Header>Arm control</Card.Header>
-        <Card.Body>
+        <Card.Body className='d-flex justify-content-around'>
           <ButtonGroup className="me-2" aria-label="Gripper buttons">
             <Button variant="primary" onClick={ () => operateGripper(1) }>Open gripper</Button>
             <Button variant="primary" onClick={ () => operateGripper(0) }>Close gripper</Button>
           </ButtonGroup> 
         </Card.Body>
 
-        <Card.Body>
-          <Joystick move={(update) => signalConverter.onMove(update)} start={(update) => signalConverter.onMove(update)}></Joystick>
-          <Joystick size={100} baseColor={"red"} sticky={false} throttle={100} move={onMove} stop={onStop}></Joystick>
+        <Card.Body className='d-flex justify-content-around'>
+          <Joystick move={(update) => signalConverter.onMove(update, ["linearX", "linearY"])} start={(update) => signalConverter.onMove(update, ["linearX", "linearY"])} stop={(update) => signalConverter.onStop(update)}></Joystick>
+          <Joystick move={(update) => signalConverter.onMove(update, ["angularY", "angularX"])} start={(update) => signalConverter.onMove(update, ["angularY", "angularX"])} stop={(update) => signalConverter.onStop(update)}></Joystick>
         </Card.Body>
 
         <Card.Body>
