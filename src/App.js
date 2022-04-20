@@ -102,7 +102,7 @@ class Controller {
 */
 
 var defaultGamepadState = {
-  type: "",
+  type: "controller",
   linearX: 0,
   linearY: 0,
   linearZ: 0,
@@ -119,8 +119,8 @@ var defaultGamepadState = {
 
 
 const axes = {
-  0: "linearX",
-  1: "linearY",
+  0: "linearY",
+  1: "linearX",
   2: "linearZ", // linearZ-2
   3: "angularX",
   4: "angularY",
@@ -203,6 +203,7 @@ function buttonPressed(b) {
 
 var controllerLoopOn = false;
 var gripperButtonPressed = false;
+var zeroMessageSent = false;
 // these have value fluctuation for some reason
 var linearZ2 = false;
 var linearZ5 = false;
@@ -270,6 +271,7 @@ function controllerLoop() {
   }
 
   var currentAxisValue;
+  var anyAxishasMoved = false;
   // Check axes
   for (i = 0; i < gp.axes.length; i++) {
     // get the value 
@@ -293,13 +295,22 @@ function controllerLoop() {
       currentAxisValue = currentAxisValue *-1;
     }
     
-    currentAxisValue = currentAxisValue.toFixed(1);
+    currentAxisValue = parseFloat(currentAxisValue.toFixed(1));
     gpState[axes[i]] = currentAxisValue;
     if (currentAxisValue != 0){
+      anyAxishasMoved = true;
+      zeroMessageSent = false;
       if (debug.controllerInput){
         console.log("axis", i, ":", axes[i], currentAxisValue);
       }
       sendJSON(gpState);
+    }
+  }
+
+  if (!anyAxishasMoved) {
+    if(!zeroMessageSent){
+      sendJSON(defaultGamepadState);
+      zeroMessageSent = true;
     }
   }
   
@@ -356,6 +367,35 @@ const onMove = (stick:IJoystickUpdateEvent) => {
   console.log("x", (stick.x/50).toFixed(1), "y", (stick.y/50).toFixed(1));
 }
 
+class SignalConverter {
+  signalRate = 100; 
+  joystickState = null; 
+  constructor(rate){
+      if(rate){
+          this.signalRate = rate;
+      }
+  }
+  //provided to `move` and `start` callback
+  onMove(joystickUpdate){
+      this.joystickState = joystickUpdate
+  }
+  //provided to `stop` callback
+  onStop(){
+      this.joystickState = null; 
+  }
+
+  streamUpdates(callback){
+      setInterval(()=> {
+          callback(this.joystickState)
+      }, this.signalRate)
+      console.log("sdffds");
+  }
+}
+
+const signalConverter = new SignalConverter(100);
+signalConverter.streamUpdates((state) => {/*Logs every 100ms*/})
+//React
+
 class ControllerStatus extends Component {
   render() {
     return (
@@ -369,7 +409,8 @@ class ControllerStatus extends Component {
         </Card.Body>
 
         <Card.Body>
-          <Joystick size={100} sticky={false} throttle={100} move={onMove} stop={onStop}></Joystick>
+          <Joystick move={(update) => signalConverter.onMove(update)} start={(update) => signalConverter.onMove(update)}></Joystick>
+          <Joystick size={100} baseColor={"red"} sticky={false} throttle={100} move={onMove} stop={onStop}></Joystick>
         </Card.Body>
 
         <Card.Body>
