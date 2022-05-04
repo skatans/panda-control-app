@@ -10,10 +10,10 @@ import * as THREE from "three";
 
 
 const debug = {
-  incomingMessages: false,
+  incomingMessages: true,
   outgoingMessages: false,
   controllerLoop: false,
-  controllerInput: true
+  controllerInput: false
 };
 
 var browserName, osName;
@@ -53,7 +53,7 @@ console.log(''
 )
 
 
-const client = new W3CWebSocket(env.PETTERI);
+const client = new W3CWebSocket('ws://localhost:3000');
 var connected = false;
 var controllerType;
 
@@ -61,12 +61,18 @@ var controllerType;
 client.onopen = () => {
   connected = true;
   console.log('WebSocket Client Connected');
-  document.querySelector('#server-info').textContent = env.PETTERI;
 };
 
 client.onmessage = (message) => {
     if (debug.incomingMessages) {console.log(message);}
-    document.querySelector('#server-message').textContent = message.data;
+    //document.querySelector('#server-message').textContent = message.data;
+    var messageJSON = JSON.parse(message.data);
+    if (messageJSON['type'] == 'connection'){
+      document.querySelector('#server-info').textContent = messageJSON['message'];
+    }
+    else {
+      document.querySelector('#server-message').textContent = messageJSON['message'];
+    }
 };
 
 client.onerror = function() {
@@ -467,9 +473,9 @@ class SignalConverter {
       setInterval(()=> {
         if (this.joystickState != null){
           let browserControlState = Object.assign({}, defaultBrowserControlState);
-          console.log(defaultBrowserControlState)
-          console.log(this.joystickState);
-          console.log("x", (this.joystickState.x/50).toFixed(1), "y", (this.joystickState.y/50).toFixed(1));
+          //console.log(defaultBrowserControlState)
+          //console.log(this.joystickState);
+          //console.log("x", (this.joystickState.x/50).toFixed(1), "y", (this.joystickState.y/50).toFixed(1));
           browserControlState[this.joystickState.axes[0]] = 
             (this.joystickState.axes[0] == "linearZ") ? (parseInt(this.joystickState.y/5)/10 * -1) : parseInt(this.joystickState.y/5)/10;
           browserControlState[this.joystickState.axes[1]] = parseInt(this.joystickState.x/5)/10;
