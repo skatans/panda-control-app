@@ -3,44 +3,96 @@ const express = require('express')
 const ws = require('ws');
 const app = express()
 
-const wsServer = new ws.Server({ noServer: true });
-const server = app.listen(3000);
+var clients = [];
 
-const backend = new ws(process.env.PETTERI);
+
+const wsServer = new ws.Server({ noServer: true });
+const server = app.listen(3001);
+
+server.on('request', function(request) {
+  var connection = request.accept('any-protocol', request.origin);
+  clients.push(connection);
+
+  connection.on('message', function(message) {
+    //broadcast the message to all the clients
+    clients.forEach(function(client) {
+      client.send(message.utf8Data);
+    });
+  });
+});
+
+const backend = new ws(env.PETTERI);
 var backendURL = null;
-var petteriConnection = false;
+
+backend.addEventListener('error', function (event) {
+  console.log('WebSocket error: ', event);
+});
+
+
 
 backend.on('open', () => {
-    backendURL = backend._url;
-    petteriConnection = true;
-  });
+  console.log("connected to " + backend._url);
+  clients.forEach(function(client) {
+      client.send(    JSON.stringify({
+        type: 'connection',
+        connected: true,
+        url: backend._url,
+        message:  "Connected to Petteri"
+    }));
+    });
+
+  backendURL = backend._url;
+});
 
 wsServer.on('connection', socket => {
-    if (petteriConnection){
-        socket.send(
-            JSON.stringify({
-                type: 'connection',
-                connected: true,
-                url: backendURL,
-                message:  "Connected to Petteri"
-            })
-        );
-    }
+  clients.push(socket);
+  console.log("new client connected");
+  if (backend.OPEN){
+      socket.send(
+          JSON.stringify({
+              type: 'connection',
+              connected: true,
+              url: backend._url,
+              message:  "Connected to Petteri"
+          })
+      );
+  }
+  else {
+    socket.send(
+      JSON.stringify({
+          type: 'connection',
+          connected: false,
+          url: null,
+          message:  "Waiting for Petteri (not connected)"
+      })
+  );
+  }
+
   socket.on('message', message => {
     backend.send(message);
+    console.log(message);
   });
+
   backend.on('message', message => {
       console.log(message.toString());
       socket.send(
         JSON.stringify({
             type: 'message',
             connected: true,
-            url: backendURL,
+            url: backend._url,
             message: message.toString()
         })
     );
   });
 });
+
+backend.on('message', message => {
+  clients.forEach(function(client) {
+    //client.send(message);
+  });
+});
+
+
 
 server.on('upgrade', (request, socket, head) => {
   wsServer.handleUpgrade(request, socket, head, socket => {

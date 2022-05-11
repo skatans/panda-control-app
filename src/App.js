@@ -1,4 +1,3 @@
-import logo from './panda.png';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import {Component, React} from 'react'
@@ -6,7 +5,6 @@ import { w3cwebsocket as W3CWebSocket } from "websocket";
 import env from "react-dotenv";
 import { Joystick, IJoystickUpdateEvent } from 'react-joystick-component';
 import { Container, Row, Col, Card, Button, ButtonGroup } from 'react-bootstrap';
-import * as THREE from "three";
 
 
 const debug = {
@@ -52,14 +50,10 @@ console.log(''
  +'navigator.userAgent = '+navigator.userAgent
 )
 
-
-const client = new W3CWebSocket('ws://localhost:3000');
-var connected = false;
+const client = new W3CWebSocket(env.API_URL);
 var controllerType;
 
-
 client.onopen = () => {
-  connected = true;
   console.log('WebSocket Client Connected');
 };
 
@@ -68,7 +62,7 @@ client.onmessage = (message) => {
     //document.querySelector('#server-message').textContent = message.data;
     var messageJSON = JSON.parse(message.data);
     if (messageJSON['type'] == 'connection'){
-      document.querySelector('#server-info').textContent = messageJSON['message'];
+      document.querySelector('#server-info').textContent = messageJSON['message'] +' '+ messageJSON['url'];
     }
     else {
       document.querySelector('#server-message').textContent = messageJSON['message'];
@@ -92,7 +86,7 @@ function sendJSON(controlObject) {
     // 6 == dpadY
     // 7 == dpadX
   document.querySelector('#client-message').textContent = JSON.stringify(controlObject);
-  if(connected){
+  if(client.OPEN){
     client.send(JSON.stringify(controlObject));
   }
 }
@@ -203,6 +197,7 @@ if (!('ongamepadconnected' in window)) {
   //interval = setInterval(pollGamepads, 500);
 }
 
+/*
 function pollGamepads() {
   var gamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads : []);
   for (var i = 0; i < gamepads.length; i++) {
@@ -214,6 +209,7 @@ function pollGamepads() {
     }
   }
 }
+*/
 
 /* --------------------------------
       BUTTON CHECKS
@@ -413,12 +409,31 @@ class ServerStatus extends Component {
   }
 }
 
+/* --------------------------------
+      KEYBOARD CONTROLS
+---------------------------------- */
+
+document.addEventListener('keydown', (event) => {
+  const keyName = event.key;
+
+  if (keyName === 'w' || keyName === 'a' || keyName === 's' || keyName === 'd') {
+    console.log(`Key pressed ${keyName}`);
+    return;
+  }
+  else {
+    console.log("Some other key is pressed");
+  }
+}, false);
+
+document.addEventListener('keyup', (event) => {
+  const keyName = event.key;
+
+}, false);
 
 
 /* --------------------------------
       BROWSER CONTROLS
 ---------------------------------- */
-
 
 var defaultBrowserControlState = {
   type: "controller",
@@ -441,7 +456,8 @@ function manualInputHandler(type, button, value){
   console.log("cool");
   var command = {}
   command.type = type;
-  command[button] = value;
+  command.name = button;
+  command.value = value;
   sendJSON(command);
 }
 
@@ -490,7 +506,7 @@ signalConverter.streamUpdates((state) => {/*Logs every 100ms*/})
 //React
 
 /* --------------------------------
-      VISUAL CONTROLS
+      JOYSTICK CONTROLS
 ---------------------------------- */
 
 class ControllerStatus extends Component {
@@ -503,12 +519,12 @@ class ControllerStatus extends Component {
           <Card.Subtitle className="mb-2 text-muted">Gripper actions</Card.Subtitle>
           
           <ButtonGroup className="me-2" aria-label="Gripper buttons">
-            <Button variant="primary" onClick={ () => operateGripper(1) }>Open gripper</Button>
-            <Button variant="primary" onClick={ () => operateGripper(0) }>Close gripper</Button>
+            <Button variant="primary" onClick={ () => operateGripper(0) }>Open gripper</Button>
+            <Button variant="primary" onClick={ () => operateGripper(1) }>Close gripper</Button>
           </ButtonGroup> 
           <ButtonGroup className="me-2" aria-label="Y axis buttons">
-            <Button  variant="outline-primary" onClick={ () => manualInputHandler("joint", "joint7", 1) }>Rotate left</Button>
-            <Button variant="outline-primary" onClick={ () => manualInputHandler("joint", "joint7", -1) }>Rotate right</Button>
+            <Button  variant="outline-primary" onClick={ () => manualInputHandler("joint", "panda_joint7", 1) }>Rotate left</Button>
+            <Button variant="outline-primary" onClick={ () => manualInputHandler("joint", "panda_joint7", -1) }>Rotate right</Button>
           </ButtonGroup>
         </Card.Body>
 
@@ -523,8 +539,8 @@ class ControllerStatus extends Component {
 
         <Card.Body className='d-flex justify-content-around'>
           <ButtonGroup className="me-2" aria-label="Y axis buttons">
-            <Button  variant="primary" onClick={ () => manualInputHandler("joint", "joint0", 1) }>Rotate base left</Button>
-            <Button variant="primary" onClick={ () => manualInputHandler("joint", "joint0", -1) }>Rotate base right</Button>
+            <Button  variant="primary" onClick={ () => manualInputHandler("joint", "panda_joint1", 1) }>Rotate base left</Button>
+            <Button variant="primary" onClick={ () => manualInputHandler("joint", "panda_joint1", -1) }>Rotate base right</Button>
           </ButtonGroup>
         </Card.Body>
       <Card.Body>
@@ -544,36 +560,7 @@ class ControllerStatus extends Component {
 
 class Visualization extends Component {
   componentDidMount() {
-    var scene = new THREE.Scene();
-    var camera = new THREE.PerspectiveCamera(
-      75,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
-
-    var renderer = new THREE.WebGLRenderer();
-    //renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setSize(310, 300);
-    this.mount.appendChild(renderer.domElement);
-
-    var geometry = new THREE.BoxGeometry(1, 1, 1);
-    var material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    var cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
-
-    camera.position.z = 5;
-
-    var animate = function() {
-      requestAnimationFrame(animate);
-
-      cube.rotation.x += 0.01;
-      cube.rotation.y += 0.01;
-
-      renderer.render(scene, camera);
-    };
-
-    animate();
+    
   }
   render() {
     return <Card style={{ width: '20rem' }} className="align-self-center"><div ref={ref => (this.mount = ref)} /></Card>;
@@ -595,7 +582,8 @@ function App() {
           </Col>
 
           <Col id="server-col" className="d-flex justify-content-center align-items-center">  
-          <Visualization />
+          <video id="myVidPlayer" controls muted autoPlay></video>
+
           </Col>
 
         </Row>
