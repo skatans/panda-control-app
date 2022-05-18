@@ -5,7 +5,6 @@ const app = express();
 
 var clients = [];
 
-
 const wsServer = new ws.Server({ noServer: true });
 const server = app.listen(3001);
 

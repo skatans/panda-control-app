@@ -48,6 +48,7 @@
   },
   "react-dotenv": {
     "whitelist": [
+      "REACT_APP_API_URL",
       "API_URL",
       "PETTERI"
     ]
