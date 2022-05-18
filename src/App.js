@@ -14,41 +14,40 @@ const debug = {
   controllerInput: false
 };
 
-var browserName, osName;
-
-// In Opera
-if ((navigator.userAgent.indexOf("Opera"))!=-1) {
- browserName = "Opera";
-}
-// In MSIE
-else if ((navigator.userAgent.indexOf("MSIE"))!=-1) {
- browserName = "Microsoft Internet Explorer";
-}
-// In Chrome
-else if ((navigator.userAgent.indexOf("Chrome"))!=-1) {
- browserName = "Chrome";
-}
-// In Safari
-else if ((navigator.userAgent.indexOf("Safari"))!=-1) {
- browserName = "Safari";
-}
-// In Firefox
-else if ((navigator.userAgent.indexOf("Firefox"))!==-1) {
- browserName = "Firefox";
-}
-// In most other browsers, "name/version" is at the end of userAgent 
-else {
- browserName = "Other";
-}
-
-if ((navigator.userAgent.indexOf("Linux"))!=-1) {
-  osName = "Linux";
+function getBrowser(){
+  // In Opera
+  if ((navigator.userAgent.indexOf("Opera"))!=-1) {
+  return "Opera";
  }
+ // In MSIE
+ else if ((navigator.userAgent.indexOf("MSIE"))!=-1) {
+  return "Microsoft Internet Explorer";
+ }
+ // In Chrome
+ else if ((navigator.userAgent.indexOf("Chrome"))!=-1) {
+  return "Chrome";
+ }
+ // In Safari
+ else if ((navigator.userAgent.indexOf("Safari"))!=-1) {
+  return "Safari";
+ }
+ // In Firefox
+ else if ((navigator.userAgent.indexOf("Firefox"))!==-1) {
+  return "Firefox";
+ }
+ // In most other browsers, "name/version" is at the end of userAgent 
+ else {
+  return "Other";
+ }
+ 
+}
 
-console.log(''
- +'Browser name  = '+browserName
- +'navigator.userAgent = '+navigator.userAgent
-)
+function getOS(){
+   if ((navigator.userAgent.indexOf("Linux"))!=-1) {
+   return "Linux";
+  }
+}
+
 
 const client = new W3CWebSocket(env.API_URL);
 var controllerType;
@@ -77,14 +76,6 @@ client.onerror = function() {
 
 function sendJSON(controlObject) {
   if (debug.outgoingMessages) {console.log("sent gamepad object:", controlObject);}
-    // 0 == LeftStickX (left/right)*/
-    // 1 == LeftStickY (up/down)
-    // 2 == L2
-    // 3 == RightStickX (up/down)
-    // 4 == RightStickY (up/down)
-    // 5 == R2
-    // 6 == dpadY
-    // 7 == dpadX
   document.querySelector('#client-message').textContent = JSON.stringify(controlObject);
   if(client.OPEN){
     client.send(JSON.stringify(controlObject));
@@ -155,14 +146,14 @@ var buttonState = {
 }
 
 var axisState = {
-  0: {name: "leftStick", controls: "linearY", invert: false},
-  1: {name: "leftStick", controls: "linearX", invert: false},
-  2: {name: "leftTrigger", controls: "linearZ", invert: false}, // linearZ-2
-  3: {name: "rightStick", controls: "angularX", invert: false},
-  4: {name: "rightStick", controls: "angularY", invert: false},
-  5: {name: "rightTrigger", controls: "linearZ", invert: false}, // linearZ-5
-  6: {name: "leftStick", controls: "linearX", invert: false},
-  7: {name: "leftStick", controls: "angularZ", invert: false}
+  0: {name: "leftStick", controls: "linearY", invert: false, value: 0, previousValue: 0},
+  1: {name: "leftStick", controls: "linearX", invert: true, value: 0, previousValue: 0},
+  2: {name: "leftTrigger", controls: "linearZ", invert: false, value: 0, previousValue: 0}, // linearZ-2
+  3: {name: "rightStick", controls: "angularX", invert: false, value: 0, previousValue: 0},
+  4: {name: "rightStick", controls: "angularY", invert: false, value: 0, previousValue: 0},
+  5: {name: "rightTrigger", controls: "linearZ", invert: false, value: 0, previousValue: 0}, // linearZ-5
+  6: {name: "leftStick", controls: "linearX", invert: false, value: 0, previousValue: 0},
+  7: {name: "leftStick", controls: "angularZ", invert: false, value: 0, previousValue: 0}
 }
 
 var gamepadInfo = document.getElementById("gamepad-info");
@@ -191,26 +182,6 @@ window.addEventListener("gamepaddisconnected", function(e) {
   window.cancelRequestAnimationFrame(start);
 });
 
-
-if (!('ongamepadconnected' in window)) {
-  // No gamepad events available, poll instead.
-  //interval = setInterval(pollGamepads, 500);
-}
-
-/*
-function pollGamepads() {
-  var gamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads : []);
-  for (var i = 0; i < gamepads.length; i++) {
-    var gp = gamepads[i];
-    if (gp) {
-      gamepadInfo.innerHTML = "Gamepad connected at index " + gp.index + ": " + gp.id +
-        ". It has " + gp.buttons.length + " buttons and " + gp.axes.length + " axes.";
-      clearInterval(interval);
-    }
-  }
-}
-*/
-
 /* --------------------------------
       BUTTON CHECKS
 ---------------------------------- */
@@ -227,7 +198,6 @@ function checkButtons(buttonState, gp){
   if(buttonPressed(gp.buttons[0]) || buttonPressed(gp.buttons[1])){
     if (!buttonState[0]["pressed"] && !buttonState[1]["pressed"]) {
       buttonState[0]["pressed"] = true;
-      console.log("toimiiii");
       operateGripper(buttonPressed(gp.buttons[0]));
     }
   } else {
@@ -280,61 +250,59 @@ function checkButtons(buttonState, gp){
 ---------------------------------- */
 
 function checkAxes(axisState, gp){
-  let gpState = Object.assign({}, defaultGamepadState);
-  gpState.type = "controller";
-  var currentAxisValue;
-  var anyAxishasMoved = false;
-  var i;
-  // Check axes
-  for (i = 0; i < gp.axes.length; i++) {
+
+  // Iterate through axes
+  for (var i = 0; i < gp.axes.length; i++) {
     // get the value 
-    currentAxisValue = gp.axes[i];
+    axisState[i].value = gp.axes[i];
 
     // linearX needs to be inverted
-    if (i == 1) {
-      currentAxisValue = currentAxisValue * -1;
+    if (axisState[i].invert) {
+      axisState[i].value = axisState[i].value * -1;
     }
 
     // problems with 2 and 5 having different value stuff
     // like first have default value of 0 then range from -1 to 1
-    if (osName == "Linux"){
+    if (getOS() == "Linux" && gp.id == "054c-05c4-Wireless Controller"){
       if (i == 2) {
-        currentAxisValue = (currentAxisValue+1)/2;
-        if (currentAxisValue != 1 && !linearZ2){
-          currentAxisValue = 0;
+        axisState[i].value = (axisState[i].value+1)/2;
+        if (axisState[i].value != 1 && !linearZ2){
+          axisState[i].value = 0;
         } else {
           linearZ2 = true;
         }
       } else if (i == 5) {
-        currentAxisValue = (currentAxisValue+1)/2;
-        if (currentAxisValue == 0.5 && !linearZ5){
-          currentAxisValue = 0;
+        axisState[i].value = (axisState[i].value+1)/2;
+        if (axisState[i].value == 0.5 && !linearZ5){
+          axisState[i].value = 0;
         } else {
           linearZ5 = true;
         }
-        currentAxisValue = currentAxisValue *-1;
+        axisState[i].value = axisState[i].value *-1;
       }
     }
-    
-    currentAxisValue = parseFloat(currentAxisValue.toFixed(1));
-    gpState[axes[i]] = currentAxisValue;
-    if (currentAxisValue != 0){
-      anyAxishasMoved = true;
-      zeroMessageSent = false;
-      if (debug.controllerInput){
-        console.log("axis", i, ":", axes[i], currentAxisValue);
-      }
-      sendJSON(gpState);
-    }
-  }
-
-  if (!anyAxishasMoved) {
-    if(!zeroMessageSent){
-      sendJSON(defaultGamepadState);
-      zeroMessageSent = true;
-    }
+    axisState[i].value = parseFloat(axisState[i].value.toFixed(1));
   }
   return axisState;
+}
+
+function parseAndSend(type, axisState){
+  var cmd = {type: type}
+  Object.values(axisState).forEach(element => {
+    // send 0 to stop
+    if ((element.previousValue != 0) && (element.value == 0)){
+      cmd[element.controls] = element.value; 
+    }
+    // otherwise send non-zero values
+    if (element.value != 0){
+      cmd[element.controls] = element.value;
+    }
+    // set checked value as previous
+    element.previousValue = element.value;
+  });
+  if (Object.keys(cmd).length != 1){
+    sendJSON(cmd);
+  }
 }
 
 /* --------------------------------
@@ -343,7 +311,6 @@ function checkAxes(axisState, gp){
 
 var controllerLoopOn = false;
 var baseJointButtonPressed = false;
-var zeroMessageSent = false;
 
 // these have value fluctuation for some reason
 var linearZ2 = false;
@@ -365,11 +332,12 @@ function controllerLoop() {
     console.log("Controller loop looping!");
   }
 
-  // check buttons
+  // check buttons and axes
   buttonState = checkButtons(buttonState, gp);
   axisState = checkAxes(axisState, gp);
-}
 
+  parseAndSend("controller", axisState);
+}
 
 function operateGripper(operation){
   var command = {}
@@ -427,7 +395,6 @@ document.addEventListener('keydown', (event) => {
 
 document.addEventListener('keyup', (event) => {
   const keyName = event.key;
-
 }, false);
 
 

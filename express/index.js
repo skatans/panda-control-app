@@ -1,7 +1,7 @@
-require('dotenv').config()
-const express = require('express')
+require('dotenv').config();
+const express = require('express');
 const ws = require('ws');
-const app = express()
+const app = express();
 
 var clients = [];
 
@@ -21,14 +21,11 @@ server.on('request', function(request) {
   });
 });
 
-const backend = new ws(env.PETTERI);
-var backendURL = null;
+const backend = new ws(process.env.PETTERI);
 
 backend.addEventListener('error', function (event) {
   console.log('WebSocket error: ', event);
 });
-
-
 
 backend.on('open', () => {
   console.log("connected to " + backend._url);
@@ -40,8 +37,6 @@ backend.on('open', () => {
         message:  "Connected to Petteri"
     }));
     });
-
-  backendURL = backend._url;
 });
 
 wsServer.on('connection', socket => {
