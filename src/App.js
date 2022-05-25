@@ -5,51 +5,11 @@ import { w3cwebsocket as W3CWebSocket } from "websocket";
 import env from "react-dotenv";
 import { Joystick } from 'react-joystick-component';
 import { Container, Row, Col, Card, Button, ButtonGroup } from 'react-bootstrap';
+import socketIOClient from "socket.io-client";
 
-const debug = {
-  incomingMessages: false,
-  outgoingMessages: false,
-  controllerLoop: false,
-  controllerInput: true
-};
-
-function getBrowser(){
-  // In Opera
-  if ((navigator.userAgent.includes("Opera"))) {
-  return "opera";
- }
- // In MSIE
- else if ((navigator.userAgent.includes("MSIE"))) {
-  return "ie";
- }
- // In Chrome
- else if ((navigator.userAgent.includes('Chrome'))) {
-  return "chrome";
- }
- // In Safari
- else if ((navigator.userAgent.includes("Safari"))) {
-  return "safari";
- }
- // In Firefox
- else if ((navigator.userAgent.includes("Firefox"))) {
-  return "firefox";
- }
- // In most other browsers, "name/version" is at the end of userAgent 
- else {
-  return "other";
- }
- 
-}
-
-function getOS(){
-  if ((navigator.userAgent.includes("Linux"))) {
-    return "linux";
-  }
-  if ((navigator.userAgent.includes("Windows"))) {
-    return "windows";
-  }
-}
-
+import { defaultButtonState, defaultAxisState, gpState, defaultGamePadStateUbuntu, controllerButtons, defaultControlMessage } from './js/gamepad.js'
+import { getBrowser, getOS } from './js/browserChecks.js'
+import { debug } from './js/debug.js'
 
 const client = new W3CWebSocket(env.REACT_APP_API_URL);
 var controllerType;
@@ -88,113 +48,13 @@ function sendJSON(controlObject) {
       GAMECONTROLLER STUFF
 ---------------------------------- */
 
-var defaultGamepadState = {
-  type: "controller",
-  linearX: 0,
-  linearY: 0,
-  linearZ: 0,
-  angularX: 0,
-  angularY: 0,
-  angularZ: 0//,
-  //buttonX: 0,
-  //buttonO: 0,
-  //buttonTR: 0,
-  //buttonSQ: 0,
-  //gripperOpen: 0,
-  //gripperClose: 0
-};
-
-const axes = {
-  0: "linearY",
-  1: "linearX",
-  2: "linearZ", // linearZ-2
-  3: "angularX",
-  4: "angularY",
-  5: "linearZ", // linearZ-5
-  6: "linearX",
-  7: "angularZ"
-}
-
-const controllerButtons = {
-  0: "buttonX",
-  1: "buttonO",
-  2: "buttonTR",
-  3: "buttonSQ",
-  4: "gripperOpen", //L1
-  5: "gripperClose", //R1
-  6: "L2",
-  7: "R2",
-  8: "home",
-  9: "start",
-  10: "power",
-  11: "LS",
-  12: "RS"
-}
-
-var buttonState = {
-  0: {name: "buttonX", controls: null, pressed: false},
-  1: {name: "buttonO", controls: null, pressed: false},
-  2: {name: "buttonTR", controls: null, pressed: false},
-  3: {name: "buttonSQ", controls: null, pressed: false},
-  4: {name: "L1", controls: "panda_joint1", pressed: false}, //L1
-  5: {name: "R2", controls: "panda_joint1", pressed: false}, //R1
-  6: {name: "L2", controls: null, pressed: false},
-  7: {name: "R2", controls: null, pressed: false},
-  8: {name: "home", controls: null, pressed: false},
-  9: {name: "start", controls: null, pressed: false},
-  10: {name: "power", controls: null, pressed: false},
-  11: {name: "LS", controls: null, pressed: false},
-  12: {name: "RS", controls: null, pressed: false}
-}
-
-var axisState = {
-  0: {name: "leftStick", controls: "linearY", invert: false, value: 0, previousValue: 0},
-  1: {name: "leftStick", controls: "linearX", invert: true, value: 0, previousValue: 0},
-  2: {name: "leftTrigger", controls: "linearZ", invert: false, value: 0, previousValue: 0}, // linearZ-2
-  3: {name: "rightStick", controls: "angularX", invert: false, value: 0, previousValue: 0},
-  4: {name: "rightStick", controls: "angularY", invert: false, value: 0, previousValue: 0},
-  5: {name: "rightTrigger", controls: "linearZ", invert: false, value: 0, previousValue: 0}, // linearZ-5
-  6: {name: "leftStick", controls: "linearX", invert: false, value: 0, previousValue: 0},
-  7: {name: "leftStick", controls: "angularZ", invert: false, value: 0, previousValue: 0}
-}
-
 // button conf for windows/mac
-var gamePadState = {
-  0: {category: "button", button: true, axis:false, gpindex: 0, name: "buttonX", controls: null, pressed: false, value: 0, previousValue: 0},
-  1: {category: "button", button: true, axis:false, gpindex: 1, name: "buttonO", controls: null, pressed: false, value: 0, previousValue: 0},
-  2: {category: "button", button: true, axis:false, gpindex: 2, name: "buttonTR", controls: null, pressed: false, value: 0, previousValue: 0},
-  3: {category: "button", button: true, axis:false, gpindex: 3, name: "buttonSQ", controls: null, pressed: false, value: 0, previousValue: 0},
-  4: {category: "button", button: true, axis:false, gpindex: 4, name: "L1", controls: "panda_joint1", pressed: false, value: 0, previousValue: 0}, //L1
-  5: {category: "button", button: true, axis:false, gpindex: 5, name: "R2", controls: "panda_joint1", pressed: false, value: 0, previousValue: 0}, //R1
-  6: {category: "axis", button: true, axis:false, gpindex: 6, name: "L2", controls: "linearZ", invert: false, value: 0, previousValue: 0},
-  7: {category: "axis", button: true, axis:false, gpindex: 7, name: "R2", controls: "linearZ", invert: true, value: 0, previousValue: 0},
-  8: {category: "button", button: true, axis:false, gpindex: 8, name: "home", controls: null, pressed: false, value: 0, previousValue: 0},
-  9: {category: "button", button: true, axis:false, gpindex: 9, name: "start", controls: null, pressed: false, value: 0, previousValue: 0},
-  10: {category: "button", button: true, axis:false, gpindex: 10, name: "power", controls: null, pressed: false, value: 0, previousValue: 0},
-  11: {category: "button", button: true, axis:false, gpindex: 11, name: "LS", controls: null, pressed: false, value: 0, previousValue: 0},
-  12: {category: "button", button: true, axis:false, gpindex: 12, name: "RS", controls: null, pressed: false, value: 0, previousValue: 0},
-  13: {category: "button", button: true, axis:false, gpindex: 13, name: "leftStick", controls: "", invert: false, value: 0, previousValue: 0},
-  14: {category: "button", button: true, axis:false, gpindex: 14, name: "leftStick", controls: "", invert: true, value: 0, previousValue: 0},
-  15: {category: "button", button: true, axis:false, gpindex: 15, name: "leftTrigger", controls: "", invert: false, value: 0, previousValue: 0}, // linearZ-2
-  16: {category: "button", button: true, axis:false, gpindex: 16, name: "rightStick", controls: "", invert: false, value: 0, previousValue: 0},
-  17: {category: "axis", button: false, axis:true, gpindex: 0, name: "rightStick", controls: "linearY", invert: false, value: 0, previousValue: 0},
-  18: {category: "axis", button: false, axis:true, gpindex: 1, name: "rightTrigger", controls: "linearX", invert: true, value: 0, previousValue: 0}, // linearZ-5
-  19: {category: "axis", button: false, axis:true, gpindex: 2, name: "leftStick", controls: "angularX", invert: false, value: 0, previousValue: 0},
-  10: {category: "axis", button: false, axis:true, gpindex: 3, name: "leftStick", controls: "angularY", invert: false, value: 0, previousValue: 0}
-}
+var gamePadState = gpState;
 
-// axis conf for windows/mac
-var axesOther = {
-  0: {name: "leftStick", controls: "linearY", invert: false, value: 0, previousValue: 0},
-  1: {name: "leftStick", controls: "linearX", invert: true, value: 0, previousValue: 0},
-  2: {name: "leftTrigger", controls: "linearZ", invert: false, value: 0, previousValue: 0}, // linearZ-2
-  3: {name: "rightStick", controls: "angularX", invert: false, value: 0, previousValue: 0},
-  4: {name: "rightStick", controls: "angularY", invert: false, value: 0, previousValue: 0},
-  5: {name: "rightTrigger", controls: "linearZ", invert: false, value: 0, previousValue: 0}, // linearZ-5
-  6: {name: "leftStick", controls: "linearX", invert: false, value: 0, previousValue: 0},
-  7: {name: "leftStick", controls: "angularZ", invert: false, value: 0, previousValue: 0}
-}
-
+// button conf for ubuntu
+var gamePadStateUbuntu = defaultGamePadStateUbuntu;
+var buttonState = defaultButtonState;
+var axisState = defaultAxisState;
 
 var gamepadInfo = document.getElementById("gamepad-info");
 var interval;
@@ -224,7 +84,7 @@ window.addEventListener("gamepaddisconnected", function(e) {
 });
 
 /* --------------------------------
-      BUTTON CHECKS
+      BUTTON CHECKS FOR UBUNTU
 ---------------------------------- */
 
 function buttonPressed(b) {
@@ -287,11 +147,10 @@ function checkButtons(buttonState, gp){
 }
 
 /* --------------------------------
-      AXIS CHECKS
+      AXIS CHECKS FOR UBUNTU
 ---------------------------------- */
 
-function checkAxesUbuntuFirefox(axisState, gp){
-
+function checkAxes(axisState, gp){
   // Iterate through axes
   for (var i = 0; i < gp.axes.length; i++) {
     // get the value 
@@ -327,76 +186,110 @@ function checkAxesUbuntuFirefox(axisState, gp){
   return axisState;
 }
 
-function getValueFromController(element, gp){
-    if (element.axis){
-      return gp.axes[element.gpindex];
-    }
-    else {
-      return gp.buttons[element.gpindex].value;
-    }
+/* --------------------------------
+      COMBINED CHECK FOR OTHERS
+---------------------------------- */
+
+function getValueFromController(element, gpad){
+  if (element.axis){
+    return gpad.axes[element.gpindex];
+  }
+  else {
+    return gpad.buttons[element.gpindex].value;
+  }
 }
 
 function simplifyValue(value){
-  value = Number.parseFloat(value).toFixed(1);
-  if ((value <= 0.1) && (value >= -0.1)){value = 0;}
-  return value;
+value = Number.parseFloat(value).toFixed(1);
+if ((value <= 0.1) && (value >= -0.1)){value = 0;}
+return value;
 }
 
-function checkInput(state, gp) {
+function handleElementValue(element) {
+  if (element.invert){element.value = element.value * -1;}
 
-  
-  // generate base for command
-  var axiscmd = {type: "controller"}
+  // parse value to one decimal and set values close to 0 as 0
+  element.value = simplifyValue(element.value);
+  element.value = Number.parseFloat(element.value);
+}
+
+function checkInput(state, gp) {  
+  /*
+   * Checks controller input and sends commands to server
+   * For axes, values from -1 to -0.2 and 0.2 to 1 are sent
+   * Gripper buttons are sent only when changed
+   * Other buttons are sent continuously if not 0
+   */
+  // generate bases for commands
+  var axiscmd = defaultControlMessage;
+  var grippercmd = {type: "gripper"}
   var buttoncmd = {type: "button"}
+  var jointcmd = {type: "joint"}
+  var axisChanges = false;
   
   Object.values(state).forEach(element => { 
     /* Axis values */
     if (element.category == "axis") {
       element.value = getValueFromController(element, gp);
 
-      if (element.invert){element.value = element.value * -1;}
-
-      // parse value to one decimal and set values close to 0 as 0
-      element.value = simplifyValue(element.value);
-    
+      handleElementValue(element);
+      
       // send 0 to stop if previous value was not 0
       if ((element.previousValue != 0) && (element.value == 0)){
-        axiscmd[element.controls] = element.value; 
+        axiscmd[element.controls] = element.value;
+        axisChanges = true;
       }
       // otherwise send non-zero values
-      if (element.value != 0){
+      else if (element.value != 0){
         axiscmd[element.controls] = element.value;
-        console.log( Number.parseFloat(element.value).toFixed(1));
+        console.log(element.name + " " + element.value);
+        axisChanges = true;
       }
       // set checked value as previous
       element.previousValue = element.value;
     }
+
+    /* Buttons */
+    else if (element.category = "button") {
+      if (element.controls == "gripper"){
+        if (getValueFromController(element, gp) && !element.pressed){
+          // values are predetermined as 0: close and 1: open
+          grippercmd[element.controls] = element.value;
+          sendJSON(grippercmd);
+          element.pressed = true;
+        }
+        else if (!getValueFromController(element, gp)) {
+          element.pressed = false;
+        }
+      }
+      else if (element.controls != null) {
+        if (getValueFromController(element, gp)) {
+          console.log(element.name);
+          jointcmd['name'] =  element.controls;
+          jointcmd['value'] =  element.invert ? -1 : 1;
+          element.pressed = true;
+        }
+        else if (element.pressed) {
+          jointcmd['name'] =  element.controls;
+          jointcmd['value'] = 0;
+          element.pressed = false;
+        }
+        
+      }
+    }
   });
 
-  if (Object.keys(axiscmd).length != 1){
+  
+  if (axisChanges){
     sendJSON(axiscmd);
   }
+  if (Object.keys(jointcmd).length != 1){
+    sendJSON(jointcmd);
+  }
+  
   return state;
 }
 
-function parseAndSend(type, axisState){
-  var cmd = {type: type}
-  Object.values(axisState).forEach(element => {
-    // send 0 to stop
-    if ((element.previousValue != 0) && (element.value == 0)){
-      cmd[element.controls] = element.value; 
-    }
-    // otherwise send non-zero values
-    if (element.value != 0){
-      cmd[element.controls] = element.value;
-    }
-    // set checked value as previous
-    element.previousValue = element.value;
-  });
-  if (Object.keys(cmd).length != 1){
-    sendJSON(cmd);
-  }
-}
 
 /* --------------------------------
       CONTROLLER LOOP
@@ -415,25 +308,31 @@ function controllerLoop() {
     return;
   }
 
-  var gp = gamepads[0];  
+  //var gp = gamepads[0];
+  
+
   if (debug.controllerLoop) {
     if (!controllerLoopOn){
       console.log("Controller loop started!");
-      console.log(gp);
+      console.log(gamepads);
     }
     controllerLoopOn = true;
     console.log("Controller loop looping!");
   }
 
-  // check buttons and axes
-  buttonState = checkButtons(buttonState, gp);
-  // duct tape thing for ubuntu & firefox having a differing interpretation of things
-  if (getOS() == "linux" && gp.id == "054c-05c4-Wireless Controller"){
-    axisState = checkAxesUbuntuFirefox(axisState, gp);
-  }
-  else {
-    gamePadState = checkInput(gamePadState, gp);
-  }
+  Object.values(gamepads).forEach(gp => { 
+    if(gp){
+      // check buttons and axes
+      // duct tape thing for ubuntu & firefox having a differing interpretation of things
+      if (getOS() == "linux" && gp.id == "054c-05c4-Wireless Controller"){
+        buttonState = checkButtons(buttonState, gp);
+        axisState = checkAxes(axisState, gp);
+      }
+      else {
+        gamePadState = checkInput(gamePadState, gp);
+      }
+    }
+  })
 }
 
 function operateGripper(operation){
@@ -506,15 +405,8 @@ var defaultBrowserControlState = {
   linearZ: 0,
   angularX: 0,
   angularY: 0,
-  angularZ: 0//,
-  //buttonX: 0,
-  //buttonO: 0,
-  //buttonTR: 0,
-  //buttonSQ: 0,
-  //gripperOpen: 0,
-  //gripperClose: 0
+  angularZ: 0,
 };
-
 
 function manualInputHandler(type, button, value){
   console.log("cool");
@@ -524,7 +416,6 @@ function manualInputHandler(type, button, value){
   command.value = value;
   sendJSON(command);
 }
-
 
 /* --------------------------------
       BROWSER JOYSTICK STUFF
@@ -622,12 +513,26 @@ class ControllerStatus extends Component {
       VISUALIZE ROBOT
 ---------------------------------- */
 
+const socket = socketIOClient(env.VIDEO, {
+withCredentials: false
+});
+socket.on('image', (image) => { //capture 'image'-messages and as they're already encoded as jpg, no need to handle encoding/decoding stuff
+  const imageElm = document.getElementById('image');
+    imageElm.src = 'data:image/jpeg;base64,'+image;
+});
+
 class Visualization extends Component {
   componentDidMount() {
     
   }
   render() {
-    return <Card style={{ width: '20rem' }} className="align-self-center"><div ref={ref => (this.mount = ref)} /></Card>;
+    return (
+      <div>
+        <img id="image"></img>
+
+      </div>
+
+    )
   }
 }
 
@@ -646,7 +551,7 @@ function App() {
           </Col>
 
           <Col id="server-col" className="d-flex justify-content-center align-items-center">  
-          <video id="myVidPlayer" controls muted autoPlay></video>
+          <Visualization />
 
           </Col>
 
