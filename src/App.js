@@ -90,25 +90,26 @@ function controllerLoop() {
 function App() {
   var interval;
 
-  // Event handler for connected gamepad
-  const gamepadConnectionEvent = (event) => {
-    handleGamepadConnection(event, interval, controllerLoop);
-  };
-
-  // Event handler for disconnected gamepad
-  const gamepadDisconnectionEvent = (event) => {
-    handleGamepadDisconnection(event, interval);
-  };
-  
+  /*
+   * Event handling for gamepad connections
+   */
   useEffect(() => {
-    window.addEventListener('gamepadconnected', gamepadConnectionEvent);
-    window.addEventListener('gamepaddisconnected', gamepadDisconnectionEvent);
+    // Event handler for connected gamepad
+    window.addEventListener('gamepadconnected', (event) => {
+      handleGamepadConnection(event, interval, controllerLoop);
+    });
+    // Event handler for disconnected gamepad
+    window.addEventListener('gamepaddisconnected', (event) => {
+      handleGamepadDisconnection(event, interval);
+    });
+    // event handlers for keyboard events (not in use)
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
+
     // cleanup this component
     return () => {
-      window.removeEventListener('gamepadconnected', gamepadConnectionEvent);
-      window.removeEventListener('gamepaddisconnected', gamepadDisconnectionEvent);
+      window.removeEventListener('gamepadconnected');
+      window.removeEventListener('gamepaddisconnected');
       document.removeEventListener('keydown', handleKeyDown);
       document.addEventListener('keyup', handleKeyUp);
     };
