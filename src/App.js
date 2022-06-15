@@ -17,20 +17,27 @@ import { debug } from './js/debug.js';
       CONNECTIONS
 ----------------------------------------------- */
 
-const client = new W3CWebSocket(env.API_URL);
+const client = new W3CWebSocket(env.PETTERI);
 
 client.onopen = () => {
   console.log('WebSocket Client Connected');
+  document.querySelector('#server-info').textContent = 'Connected to '+ client.url;
 };
 
 client.onmessage = (message) => {
+  
     if (debug.incomingMessages) {console.log(message);}
-    var messageJSON = JSON.parse(message.data);
-    if (messageJSON['type'] == 'connection'){
-      document.querySelector('#server-info').textContent = messageJSON['message'] +' '+ messageJSON['url'];
-    }
-    else {
-      document.querySelector('#server-message').textContent = messageJSON['message'];
+    try {
+      var messageJSON = JSON.parse(message.data);
+      if (messageJSON['type'] == 'connection'){
+        document.querySelector('#server-info').textContent = messageJSON['message'] +' '+ messageJSON['url'];
+      }
+      if (true) {
+        console.log(messageJSON);
+        document.querySelector('#server-message').textContent = JSON.stringify(messageJSON, null, '\t');
+      }
+    } catch (e) {
+      if (debug.incomingMessages) {console.log("Error while parsing message from server");}
     }
 };
 
@@ -41,7 +48,7 @@ client.onerror = function() {
 
 function sendJSON(controlObject) {
   if (debug.outgoingMessages) {console.log("sent gamepad object:", controlObject);}
-  document.querySelector('#client-message').textContent = JSON.stringify(controlObject);
+  document.querySelector('#client-message').textContent = JSON.stringify(controlObject, null, '\t');
   if(client.OPEN){
     client.send(JSON.stringify(controlObject));
   }
@@ -88,6 +95,9 @@ function controllerLoop() {
 
 
 function App() {
+
+  document.title = "Panda Control App"
+
   var interval;
 
   /*
@@ -111,11 +121,12 @@ function App() {
       window.removeEventListener('gamepadconnected');
       window.removeEventListener('gamepaddisconnected');
       document.removeEventListener('keydown', handleKeyDown);
-      document.addEventListener('keyup', handleKeyUp);
+      document.removeEventListener('keyup', handleKeyUp);
     };
 
   }, []);
 
+  // Give sendJSON messager function as argument so that the browser joysticks are able to send commands
   const signalConverter = new SignalConverter(60, sendJSON);
   signalConverter.streamUpdates((state) => {/*Logs every 100ms*/});
 
@@ -123,8 +134,7 @@ function App() {
     <div className="App">
       <Container fluid className="Container">
         <Row>
-
-          <Col id="server-col" className="d-flex justify-content-center align-items-center">
+          <Col id="client-col" className="d-flex justify-content-center align-items-center text-center">
             <ServerStatus />
           </Col>
 

@@ -14,15 +14,15 @@ class ServerStatus extends Component {
     render() {
       return (
         <Card style={{ width: '20rem' }} className="align-self-center">
-        <Card.Header>Server status</Card.Header>
+        <Card.Header>Sent and received</Card.Header>
         
         <Card.Body>
-          <Card.Title>Connection</Card.Title>
-          <Card.Text id="server-info">Not connected</Card.Text>
+
           <Card.Title>Last sent message</Card.Title>
           <Card.Text id="client-message">No messages sent.</Card.Text>
-          <Card.Title>Messages from server</Card.Title>
-          <Card.Text id="server-message">No messages from server</Card.Text>
+
+          <Card.Title>Last received message</Card.Title>
+          <Card.Text id="server-message">No messages received.</Card.Text>
         </Card.Body>
         </Card>
       )
@@ -49,7 +49,7 @@ class Visualization extends Component {
     render() {
     return (
         <div>
-        <img id="image"></img>
+        <img id="image" width={1000}></img>
 
         </div>
 
@@ -106,6 +106,10 @@ class ControllerStatus extends Component {
               <Button variant="primary" onClick={ () => manualInputHandler("joint", "panda_joint1", -1, this.props.messageCallback) }>Rotate base right</Button>
             </ButtonGroup>
           </Card.Body>
+        
+          <Card.Title>Connection</Card.Title>
+          <Card.Text id="server-info">Not connected</Card.Text>
+
         <Card.Body>
           <Card.Text id="gamepad-status">Waiting for Gamepad.</Card.Text>
           <div id="round-button"></div>
