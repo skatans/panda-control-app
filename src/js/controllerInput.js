@@ -2,6 +2,7 @@ import { defaultControlMessage } from './defaultMessages.js';
 import { gpState, defaultGamePadStateUbuntu} from './gamepadConfigurations.js'
 import { getBrowser, getOS } from './clientChecks.js'
 import { debug } from './debug'
+import { toggleMessageWindow } from './events.js';
  
 /* --------------------------------
       COMBINED CHECK FOR OTHERS
@@ -111,6 +112,10 @@ function getValueFromController(element, gpad){
           jointcmd['name'] =  element.controls;
           jointcmd['value'] = 0;
           element.pressed = false;
+        }
+
+        if (element.name = "home") {
+          toggleMessageWindow();
         }
         
       }

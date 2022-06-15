@@ -134,9 +134,6 @@ function App() {
     <div className="App">
       <Container fluid className="Container">
         <Row>
-          <Col id="client-col" className="d-flex justify-content-center align-items-center text-center">
-            <ServerStatus />
-          </Col>
 
           <Col id="client-col" className="d-flex justify-content-center align-items-center text-center">
             <ControllerStatus signalConverter={signalConverter} messageCallback={sendJSON}/>
@@ -144,9 +141,12 @@ function App() {
 
           <Col id="server-col" className="d-flex justify-content-center align-items-center">  
           <Visualization />
-
           </Col>
 
+          <Col id="message-col" className="d-flex justify-content-center align-items-center text-center">
+            <ServerStatus />
+          </Col>
+          
         </Row>
       </Container>
     </div>

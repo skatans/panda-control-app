@@ -18,6 +18,15 @@ function handleGamepadDisconnection(event, interval) {
   interval = clearInterval();
 }
 
+function toggleMessageWindow(){
+  if (document.querySelector('#message-card').className == "d-none"){
+    document.querySelector('#message-card').className = "bg-light"
+  }
+  else {
+    document.querySelector('#message-card').className = "d-none";
+  }
+}
+
 /* --------------------------------
       KEYBOARD CONTROLS
     
@@ -30,8 +39,8 @@ const handleKeyDown = (event) => {
   if (keyName === 'w' || keyName === 'a' || keyName === 's' || keyName === 'd') {
     console.log(`Key pressed ${keyName}`);
   }
-  else {
-    console.log("Some other key is pressed");
+  else if (keyName === 'Escape' || keyName === 'Home') {
+    toggleMessageWindow();
   }
 };
 
@@ -46,4 +55,4 @@ const handleKeyUp = (event) => {
   }
 };
 
-export { handleKeyDown, handleKeyUp, handleGamepadConnection, handleGamepadDisconnection }
+export { handleKeyDown, handleKeyUp, handleGamepadConnection, handleGamepadDisconnection, toggleMessageWindow }
